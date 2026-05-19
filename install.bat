@@ -121,8 +121,8 @@ echo Virtual environment created.
 :: ---- Step 4: Install dependencies ----
 echo.
 echo [4/10] Installing dependencies...
-"%VENV_DIR%\Scripts\pip.exe" install --upgrade pip --quiet
-"%VENV_DIR%\Scripts\pip.exe" install -r "%PROJECT_DIR%\requirements.txt" --quiet
+"%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip --quiet 2>nul
+"%VENV_DIR%\Scripts\python.exe" -m pip install -r "%PROJECT_DIR%\requirements.txt" --quiet
 if !errorlevel! neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
