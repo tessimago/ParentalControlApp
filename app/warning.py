@@ -4,6 +4,7 @@ import os
 import sys
 
 from app.config import BASE_DIR, VENV_DIR
+from app.i18n import t
 
 
 def send_warning(message, timeout=30):
@@ -23,9 +24,13 @@ def _launch_popup(message, timeout, header="PARENTAL CONTROL"):
     if not os.path.exists(python_exe):
         python_exe = sys.executable
 
+    msg_from = t("message_from")
+    closes_in = t("closes_in", seconds="{seconds}")
+    click_ok = t("click_ok")
+
     try:
         subprocess.Popen(
-            [python_exe, popup_script, message, str(timeout), header],
+            [python_exe, popup_script, message, str(timeout), header, msg_from, closes_in, click_ok],
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
         )
     except Exception:

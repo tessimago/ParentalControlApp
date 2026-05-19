@@ -61,29 +61,35 @@
             <input type="number" id="update_check_interval" name="update_check_interval"
                    value="{{ settings.update_check_interval }}" min="60">
         </div>
-        <h3>Remote Access & Notifications</h3>
+        <h3>{{ t.remote_access }}</h3>
         {% if settings.tunnel_url %}
         <div class="form-group">
-            <label>Current Remote URL</label>
+            <label>{{ t.current_remote_url }}</label>
             <div class="tunnel-url">
                 <a href="{{ settings.tunnel_url }}" target="_blank">{{ settings.tunnel_url }}</a>
             </div>
-            <p class="note">This URL changes when the app restarts. You'll get a Telegram notification with the new one.</p>
+            <p class="note">{{ t.tunnel_note }}</p>
         </div>
         {% else %}
-        <p class="note">Remote URL will appear here once the tunnel connects (auto-starts with the app).</p>
+        <p class="note">{{ t.tunnel_waiting }}</p>
         {% endif %}
         <div class="form-group">
-            <label for="telegram_bot_token">Telegram Bot Token</label>
+            <label for="telegram_bot_token">{{ t.telegram_token }}</label>
             <input type="password" id="telegram_bot_token" name="telegram_bot_token"
                    value="{{ settings.telegram_bot_token }}" placeholder="e.g. 123456789:ABCdefGhIjKlmNoPqRsTuVwXyZ">
-            <p class="note">Get it from @BotFather on Telegram. Send /newbot and follow instructions.</p>
+            <p class="note">{{ t.telegram_token_note }}</p>
         </div>
         <div class="form-group">
-            <label for="telegram_chat_id">Telegram Chat ID</label>
+            <label for="telegram_chat_id">{{ t.telegram_chat_id }}</label>
             <input type="text" id="telegram_chat_id" name="telegram_chat_id"
-                   value="{{ settings.telegram_chat_id }}" placeholder="e.g. 123456789">
-            <p class="note">Send a message to your bot, then visit https://api.telegram.org/bot[TOKEN]/getUpdates to find your chat ID.</p>
+                   value="{{ settings.telegram_chat_id }}" placeholder="{{ t.telegram_chat_placeholder }}">
+            <p class="note">
+                {% if settings.telegram_chat_id %}
+                    {{ t.telegram_chat_detected }} {{ settings.telegram_chat_id }}
+                {% else %}
+                    {{ t.telegram_chat_instructions }}
+                {% endif %}
+            </p>
         </div>
 
         <button type="submit" class="btn btn-primary">{{ t.save_settings }}</button>

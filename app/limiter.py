@@ -5,6 +5,7 @@ import psutil
 
 from app.config import LIMITER_CHECK_INTERVAL
 from app.database import get_app_limits, get_usage_for_process_today, get_setting
+from app.i18n import t
 from app.warning import send_warning
 
 
@@ -25,6 +26,18 @@ class AppLimiter:
         if get_setting("limiter_enabled") != "1":
             return
 
+        running_processes = set()
+        for proc in psutil.process_iter(["name"]):
+            try:
+                running_processes.add(proc.info["name"].lower())
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+        # Clear warned state for apps no longer running — re-triggers on reopen
+        for app_name in list(self.warned_apps):
+            if app_name.lower() not in running_processes:
+                self.warned_apps.discard(app_name)
+
         limits = get_app_limits()
         for limit in limits:
             process_name = limit["process_name"]
@@ -33,13 +46,15 @@ class AppLimiter:
 
             used_seconds = get_usage_for_process_today(process_name)
             if used_seconds < max_seconds:
-                self.warned_apps.discard(process_name)
+                continue
+
+            if process_name.lower() not in running_processes:
                 continue
 
             if action == "kill":
                 if process_name not in self.warned_apps:
                     send_warning(
-                        f"Time limit reached for {process_name}! Closing in 10 seconds...",
+                        t("time_limit_reached_kill", name=process_name),
                         timeout=10
                     )
                     self.warned_apps.add(process_name)
@@ -50,7 +65,7 @@ class AppLimiter:
             elif action == "warn":
                 if process_name not in self.warned_apps:
                     send_warning(
-                        f"Time limit reached for {process_name}! Please close it.",
+                        t("time_limit_reached_warn", name=process_name),
                         timeout=60
                     )
                     self.warned_apps.add(process_name)

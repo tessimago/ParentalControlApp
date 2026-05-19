@@ -7,7 +7,9 @@ import sys
 import tkinter as tk
 
 
-def show_popup(message, timeout=60, header_name="PARENTAL CONTROL"):
+def show_popup(message, timeout=60, header_name="PARENTAL CONTROL",
+               msg_from="MESSAGE FROM", closes_in_tpl="Closes in {seconds}s — or click OK",
+               click_ok_text="Click OK to dismiss"):
     root = tk.Tk()
     root.title("Parental Control")
     root.attributes("-fullscreen", True)
@@ -15,24 +17,20 @@ def show_popup(message, timeout=60, header_name="PARENTAL CONTROL"):
     root.configure(bg="#1a1a2e")
     root.overrideredirect(True)
 
-    # Block Alt+F4 and escape for a moment
     root.protocol("WM_DELETE_WINDOW", lambda: None)
 
-    # Main frame
     frame = tk.Frame(root, bg="#1a1a2e")
     frame.place(relx=0.5, rely=0.5, anchor="center")
 
-    # Icon/header
     header = tk.Label(
         frame,
-        text=f"MESSAGE FROM {header_name.upper()}",
+        text=f"{msg_from} {header_name.upper()}",
         font=("Segoe UI", 18, "bold"),
         fg="#4fc3f7",
         bg="#1a1a2e"
     )
     header.pack(pady=(0, 30))
 
-    # Message text
     msg_label = tk.Label(
         frame,
         text=message,
@@ -44,14 +42,13 @@ def show_popup(message, timeout=60, header_name="PARENTAL CONTROL"):
     )
     msg_label.pack(pady=(0, 40))
 
-    # Countdown label
     remaining = tk.IntVar(value=timeout if timeout > 0 else 0)
     countdown_text = tk.StringVar()
 
     if timeout > 0:
-        countdown_text.set(f"Closes in {timeout}s — or click OK")
+        countdown_text.set(closes_in_tpl.replace("{seconds}", str(timeout)))
     else:
-        countdown_text.set("Click OK to dismiss")
+        countdown_text.set(click_ok_text)
 
     countdown_label = tk.Label(
         frame,
@@ -79,7 +76,6 @@ def show_popup(message, timeout=60, header_name="PARENTAL CONTROL"):
     )
     btn.pack()
 
-    # Countdown timer
     def tick():
         if timeout > 0:
             left = remaining.get() - 1
@@ -87,7 +83,7 @@ def show_popup(message, timeout=60, header_name="PARENTAL CONTROL"):
                 root.destroy()
                 return
             remaining.set(left)
-            countdown_text.set(f"Closes in {left}s — or click OK")
+            countdown_text.set(closes_in_tpl.replace("{seconds}", str(left)))
         root.after(1000, tick)
 
     if timeout > 0:
@@ -117,4 +113,7 @@ if __name__ == "__main__":
     message = sys.argv[1] if len(sys.argv) > 1 else "Hello!"
     timeout = int(sys.argv[2]) if len(sys.argv) > 2 else 60
     header_name = sys.argv[3] if len(sys.argv) > 3 else "PARENTAL CONTROL"
-    show_popup(message, timeout, header_name)
+    msg_from = sys.argv[4] if len(sys.argv) > 4 else "MESSAGE FROM"
+    closes_in_tpl = sys.argv[5] if len(sys.argv) > 5 else "Closes in {seconds}s — or click OK"
+    click_ok_text = sys.argv[6] if len(sys.argv) > 6 else "Click OK to dismiss"
+    show_popup(message, timeout, header_name, msg_from, closes_in_tpl, click_ok_text)

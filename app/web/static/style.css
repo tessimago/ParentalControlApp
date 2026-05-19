@@ -281,6 +281,12 @@ th {
     font-weight: 600;
 }
 
+.tracked-time {
+    font-size: 0.8rem;
+    color: #ffa726;
+    font-weight: 500;
+}
+
 .tracked-kill {
     margin-left: auto;
 }
@@ -384,6 +390,15 @@ th {
     max-width: 100%;
     border-radius: 8px;
     border: 2px solid #0f3460;
+}
+
+/* Muted text */
+.muted {
+    color: #546e7a;
+}
+
+.hidden {
+    display: none;
 }
 
 /* Tunnel URL */

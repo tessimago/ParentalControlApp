@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title_suffix %} - Screenshots{% endblock %}
+{% block title_suffix %} - {{ t.screenshots }}{% endblock %}
 
 {% block content %}
-<h1>Screenshots</h1>
+<h1>{{ t.screenshots }}</h1>
 
 <div class="card">
-    <h3>Browse by Day</h3>
+    <h3>{{ t.browse_by_day }}</h3>
     <div class="date-list">
         {% for date in dates %}
         <a href="{{ url_for('main.screenshots_date', date=date) }}"
@@ -15,7 +15,7 @@
         {% endfor %}
     </div>
     {% if not dates %}
-    <p>No screenshots yet.</p>
+    <p>{{ t.no_screenshots }}</p>
     {% endif %}
 </div>
 
@@ -25,7 +25,7 @@
         <h3>{{ selected_date }}</h3>
         <form method="POST" action="{{ url_for('main.delete_screenshot_day', date=selected_date) }}"
               onsubmit="return confirm('Delete ALL screenshots for {{ selected_date }}?')">
-            <button type="submit" class="btn btn-danger btn-sm">Delete Entire Day</button>
+            <button type="submit" class="btn btn-danger btn-sm">{{ t.delete_entire_day }}</button>
         </form>
     </div>
 
@@ -47,12 +47,12 @@
         {% endfor %}
     </div>
     {% else %}
-    <p>No screenshots for this date.</p>
+    <p>{{ t.no_data }}</p>
     {% endif %}
 </div>
 {% endif %}
 
 <div class="card">
-    <a href="{{ url_for('main.live_view') }}" class="btn btn-primary">View Live Screen</a>
+    <a href="{{ url_for('main.live_view') }}" class="btn btn-primary">{{ t.view_live }}</a>
 </div>
 {% endblock %}

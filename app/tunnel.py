@@ -25,6 +25,9 @@ class CloudflareTunnel:
         # Wait a bit for Flask to start
         self.stop_flag.wait(5)
 
+        # Wait for internet connectivity
+        self._wait_for_internet()
+
         while not self.stop_flag.is_set():
             if not os.path.exists(CLOUDFLARED_PATH):
                 if not self._download_cloudflared():
@@ -47,6 +50,16 @@ class CloudflareTunnel:
                 self.stop_flag.wait(15)
 
         self._stop_tunnel()
+
+    def _wait_for_internet(self):
+        """Wait until we can reach the internet before starting the tunnel."""
+        import urllib.request
+        while not self.stop_flag.is_set():
+            try:
+                urllib.request.urlopen("https://cloudflare.com/cdn-cgi/trace", timeout=5)
+                return
+            except Exception:
+                self.stop_flag.wait(10)
 
     def _download_cloudflared(self):
         try:

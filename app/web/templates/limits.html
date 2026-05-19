@@ -1,42 +1,42 @@
 {% extends "base.html" %}
-{% block title_suffix %} - App Limits{% endblock %}
+{% block title_suffix %} - {{ t.limits }}{% endblock %}
 
 {% block content %}
-<h1>App Time Limits</h1>
+<h1>{{ t.app_limits }}</h1>
 
 <div class="card">
-    <h3>Add / Update Limit</h3>
+    <h3>{{ t.add_update_limit }}</h3>
     <form method="POST" action="{{ url_for('main.limits') }}">
         <div class="form-row">
             <div class="form-group">
-                <label for="process_name">Process Name</label>
+                <label for="process_name">{{ t.process_name }}</label>
                 <input type="text" id="process_name" name="process_name" placeholder="e.g. minecraft.exe" required>
             </div>
             <div class="form-group">
-                <label for="daily_limit_minutes">Daily Limit (minutes)</label>
+                <label for="daily_limit_minutes">{{ t.daily_limit }}</label>
                 <input type="number" id="daily_limit_minutes" name="daily_limit_minutes" min="1" required>
             </div>
             <div class="form-group">
-                <label for="action">Action</label>
+                <label for="action">{{ t.action }}</label>
                 <select id="action" name="action">
-                    <option value="warn">Warn only</option>
-                    <option value="kill">Kill process</option>
+                    <option value="warn">{{ t.warn_only }}</option>
+                    <option value="kill">{{ t.kill_process }}</option>
                 </select>
             </div>
-            <button type="submit" class="btn btn-primary">Add Limit</button>
+            <button type="submit" class="btn btn-primary">{{ t.add_limit }}</button>
         </div>
     </form>
 </div>
 
 <div class="card">
-    <h3>Current Limits</h3>
+    <h3>{{ t.current_limits }}</h3>
     {% if app_limits %}
     <table>
         <thead>
             <tr>
-                <th>Process</th>
-                <th>Daily Limit</th>
-                <th>Action</th>
+                <th>{{ t.process_name }}</th>
+                <th>{{ t.daily_limit }}</th>
+                <th>{{ t.action }}</th>
                 <th></th>
             </tr>
         </thead>
@@ -50,7 +50,7 @@
                     <form method="POST" action="{{ url_for('main.limits') }}" style="display:inline">
                         <input type="hidden" name="action_type" value="delete">
                         <input type="hidden" name="delete_process" value="{{ limit.process_name }}">
-                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                        <button type="submit" class="btn btn-danger btn-sm">{{ t.remove }}</button>
                     </form>
                 </td>
             </tr>
@@ -58,7 +58,7 @@
         </tbody>
     </table>
     {% else %}
-    <p>No limits configured.</p>
+    <p>{{ t.no_limits }}</p>
     {% endif %}
 </div>
 {% endblock %}

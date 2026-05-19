@@ -12,8 +12,10 @@ from app.web.auth import login_required, check_password, change_password
 from app.database import (
     get_schedules, update_schedule, set_override, get_override_for_date,
     get_app_limits, set_app_limit, delete_app_limit,
-    get_usage_for_date, get_usage_range, get_setting, set_setting,
-    get_tracked_apps, add_tracked_app, remove_tracked_app
+    get_usage_for_date, get_usage_for_process_today, get_usage_range,
+    get_setting, set_setting,
+    get_tracked_apps, add_tracked_app, remove_tracked_app,
+    get_hidden_apps, hide_app, unhide_app
 )
 from app.screenshots import (
     capture_frame, get_screenshot_dates, get_screenshots_for_date, get_screenshot_path
@@ -27,12 +29,13 @@ bp = Blueprint("main", __name__)
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    from app.i18n import t
     if request.method == "POST":
         password = request.form.get("password", "")
         if check_password(password):
             session["authenticated"] = True
             return redirect(url_for("main.dashboard"))
-        flash("Invalid password", "error")
+        flash(t("invalid_password"), "error")
     return render_template("login.html")
 
 
@@ -81,7 +84,11 @@ def dashboard():
             "process_name": app["process_name"],
             "display_name": app["display_name"],
             "is_running": app["process_name"].lower() in running_processes,
+            "time_today": get_usage_for_process_today(app["process_name"]),
         })
+
+    hidden = get_hidden_apps()
+    usage_today = [u for u in usage_today if u["process_name"] not in hidden]
 
     return render_template(
         "dashboard.html",
@@ -117,7 +124,11 @@ def api_dashboard():
             "process_name": app["process_name"],
             "display_name": app["display_name"],
             "is_running": app["process_name"].lower() in running_processes,
+            "time_today": get_usage_for_process_today(app["process_name"]),
         })
+
+    hidden = get_hidden_apps()
+    usage_today = [u for u in usage_today if u["process_name"] not in hidden]
 
     return jsonify({
         "active_users": active_users,
@@ -149,6 +160,7 @@ def send_message():
 @login_required
 def kill_process():
     import psutil
+    from app.i18n import t
     process_name = request.form.get("process_name", "").lower()
     killed = 0
     for proc in psutil.process_iter(["name"]):
@@ -159,9 +171,9 @@ def kill_process():
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     if killed:
-        flash(f"Killed {killed} instance(s) of {process_name}", "success")
+        flash(t("killed_instances", count=killed, name=process_name), "success")
     else:
-        flash(f"{process_name} is not running", "error")
+        flash(t("not_running_error", name=process_name), "error")
     return redirect(url_for("main.dashboard"))
 
 
@@ -203,13 +215,14 @@ def tracked():
 @bp.route("/tracked", methods=["POST"])
 @login_required
 def tracked_update():
+    from app.i18n import t
     action_type = request.form.get("action_type")
 
     if action_type == "remove":
         process_name = request.form.get("process_name")
         if process_name:
             remove_tracked_app(process_name)
-            flash(f"Removed {process_name} from watchlist", "success")
+            flash(t("removed_watchlist", name=process_name), "success")
     else:
         process_name = request.form.get("process_name", "").strip().lower()
         display_name = request.form.get("display_name", "").strip()
@@ -217,7 +230,7 @@ def tracked_update():
             if not display_name:
                 display_name = process_name.replace(".exe", "").title()
             add_tracked_app(process_name, display_name)
-            flash(f"Added {display_name} to watchlist", "success")
+            flash(t("added_watchlist", name=display_name), "success")
 
     return redirect(url_for("main.tracked"))
 
@@ -237,24 +250,26 @@ def schedule():
 @bp.route("/schedule", methods=["POST"])
 @login_required
 def schedule_update():
+    from app.i18n import t
     for day in range(7):
         start = request.form.get(f"start_{day}")
         end = request.form.get(f"end_{day}")
         if start and end:
             update_schedule(day, start, end)
-    flash("Schedule updated", "success")
+    flash(t("schedule_updated"), "success")
     return redirect(url_for("main.schedule"))
 
 
 @bp.route("/schedule/extend", methods=["POST"])
 @login_required
 def schedule_extend():
+    from app.i18n import t
     today = datetime.now().strftime("%Y-%m-%d")
     start = request.form.get("start_time", "06:00")
     end = request.form.get("end_time")
     if end:
         set_override(today, start, end)
-        flash(f"Today's schedule extended until {end}", "success")
+        flash(t("extended_until", time=end), "success")
     return redirect(url_for("main.schedule"))
 
 
@@ -270,20 +285,21 @@ def limits():
 @bp.route("/limits", methods=["POST"])
 @login_required
 def limits_update():
+    from app.i18n import t
     action_type = request.form.get("action_type")
 
     if action_type == "delete":
         process_name = request.form.get("delete_process")
         if process_name:
             delete_app_limit(process_name)
-            flash(f"Removed limit for {process_name}", "success")
+            flash(t("limit_removed", name=process_name), "success")
     else:
         process_name = request.form.get("process_name", "").strip().lower()
         minutes = request.form.get("daily_limit_minutes")
         action = request.form.get("action", "warn")
         if process_name and minutes:
             set_app_limit(process_name, int(minutes), action)
-            flash(f"Limit set for {process_name}", "success")
+            flash(t("limit_set", name=process_name), "success")
 
     return redirect(url_for("main.limits"))
 
@@ -294,8 +310,42 @@ def limits_update():
 @login_required
 def history():
     date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+    show_hidden = request.args.get("show_hidden", "0") == "1"
     usage = get_usage_for_date(date_str)
-    return render_template("history.html", usage=usage, selected_date=date_str)
+    tracked = {a["process_name"] for a in get_tracked_apps()}
+    hidden = get_hidden_apps()
+
+    tracked_usage = [u for u in usage if u["process_name"] in tracked]
+    other_usage = [u for u in usage if u["process_name"] not in tracked and u["process_name"] not in hidden]
+    hidden_usage = [u for u in usage if u["process_name"] in hidden]
+
+    return render_template(
+        "history.html",
+        tracked_usage=tracked_usage,
+        other_usage=other_usage,
+        hidden_usage=hidden_usage,
+        show_hidden=show_hidden,
+        selected_date=date_str,
+        usage=usage
+    )
+
+
+@bp.route("/api/hide", methods=["POST"])
+@login_required
+def api_hide():
+    process_name = request.form.get("process_name")
+    if process_name:
+        hide_app(process_name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/unhide", methods=["POST"])
+@login_required
+def api_unhide():
+    process_name = request.form.get("process_name")
+    if process_name:
+        unhide_app(process_name)
+    return jsonify({"ok": True})
 
 
 @bp.route("/api/history")
@@ -356,20 +406,22 @@ def live_stream():
 @bp.route("/screenshots/delete/<date>", methods=["POST"])
 @login_required
 def delete_screenshot_day(date):
+    from app.i18n import t
     day_folder = os.path.join(SCREENSHOTS_DIR, date)
     if os.path.exists(day_folder):
         shutil.rmtree(day_folder)
-        flash(f"Deleted all screenshots for {date}", "success")
+        flash(t("deleted_screenshots", date=date), "success")
     return redirect(url_for("main.screenshots"))
 
 
 @bp.route("/screenshots/delete/<date>/<filename>", methods=["POST"])
 @login_required
 def delete_screenshot(date, filename):
+    from app.i18n import t
     filepath = get_screenshot_path(date, filename)
     if os.path.exists(filepath):
         os.remove(filepath)
-        flash(f"Deleted {filename}", "success")
+        flash(t("deleted_file", name=filename), "success")
     return redirect(url_for("main.screenshots_date", date=date))
 
 
@@ -423,5 +475,35 @@ def settings_update():
     set_setting("schedule_enabled", "1" if request.form.get("schedule_enabled") else "0")
     set_setting("limiter_enabled", "1" if request.form.get("limiter_enabled") else "0")
 
+    # Auto-fetch chat ID if token is set but chat ID is empty
+    bot_token = get_setting("telegram_bot_token")
+    chat_id = get_setting("telegram_chat_id")
+    if bot_token and not chat_id:
+        fetched_id = _fetch_telegram_chat_id(bot_token)
+        if fetched_id:
+            set_setting("telegram_chat_id", fetched_id)
+            flash(t("telegram_auto_detected", id=fetched_id), "success")
+        else:
+            flash(t("telegram_send_message"), "error")
+
     flash(t("settings_updated"), "success")
     return redirect(url_for("main.settings"))
+
+
+def _fetch_telegram_chat_id(bot_token):
+    try:
+        import urllib.request
+        import json
+        url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+        req = urllib.request.Request(url)
+        response = urllib.request.urlopen(req, timeout=10)
+        data = json.loads(response.read().decode())
+        if data.get("ok") and data.get("result"):
+            for update in data["result"]:
+                msg = update.get("message") or update.get("my_chat_member", {})
+                chat = msg.get("chat") if isinstance(msg, dict) else None
+                if chat and chat.get("id"):
+                    return str(chat["id"])
+    except Exception:
+        pass
+    return None

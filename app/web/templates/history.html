@@ -1,47 +1,97 @@
 {% extends "base.html" %}
-{% block title_suffix %} - History{% endblock %}
+{% block title_suffix %} - {{ t.history }}{% endblock %}
 
 {% block content %}
-<h1>Usage History</h1>
+<h1>{{ t.usage_history }}</h1>
 
 <div class="card">
     <div class="form-row">
         <form method="GET" action="{{ url_for('main.history') }}">
             <div class="form-group">
-                <label for="date">Select Date</label>
+                <label for="date">{{ t.select_date }}</label>
                 <input type="date" id="date" name="date" value="{{ selected_date }}">
             </div>
-            <button type="submit" class="btn btn-secondary">View</button>
+            <button type="submit" class="btn btn-secondary">{{ t.view }}</button>
         </form>
     </div>
 </div>
 
+{% if tracked_usage %}
 <div class="card">
-    <h3>Usage for {{ selected_date }}</h3>
-    <canvas id="usageChart" width="400" height="200"></canvas>
-</div>
-
-<div class="card">
-    <h3>Details</h3>
-    {% if usage %}
+    <h3>{{ t.tracked_apps }}</h3>
+    <canvas id="trackedChart" width="400" height="150"></canvas>
     <table>
         <thead>
             <tr>
-                <th>Application</th>
-                <th>Time Used</th>
+                <th>{{ t.application }}</th>
+                <th>{{ t.time_used }}</th>
             </tr>
         </thead>
         <tbody>
-            {% for app in usage %}
+            {% for app in tracked_usage %}
             <tr>
                 <td>{{ app.process_name }}</td>
-                <td>{{ (app.seconds_used // 3600) }}h {{ (app.seconds_used % 3600 // 60) }}m {{ (app.seconds_used % 60) }}s</td>
+                <td>{{ (app.seconds_used // 3600) }}h {{ (app.seconds_used % 3600 // 60) }}m</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="card">
+    <h3>{{ t.usage_for }} {{ selected_date }}</h3>
+    {% if other_usage %}
+    <canvas id="usageChart" width="400" height="200"></canvas>
+    <table>
+        <thead>
+            <tr>
+                <th>{{ t.application }}</th>
+                <th>{{ t.time_used }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in other_usage %}
+            <tr data-process="{{ app.process_name }}">
+                <td>{{ app.process_name }}</td>
+                <td>{{ (app.seconds_used // 3600) }}h {{ (app.seconds_used % 3600 // 60) }}m</td>
+                <td><button class="btn btn-secondary btn-xs hide-btn" onclick="hideApp(this, '{{ app.process_name }}')">Hide</button></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
-    <p>No data for this date.</p>
+    <p>{{ t.no_data }}</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Hidden ({{ hidden_usage | length }})</h3>
+        {% if hidden_usage %}
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('hidden-table').classList.toggle('hidden')">Toggle</button>
+        {% endif %}
+    </div>
+    {% if hidden_usage %}
+    <table id="hidden-table" class="hidden">
+        <thead>
+            <tr>
+                <th>{{ t.application }}</th>
+                <th>{{ t.time_used }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in hidden_usage %}
+            <tr data-process="{{ app.process_name }}">
+                <td class="muted">{{ app.process_name }}</td>
+                <td class="muted">{{ (app.seconds_used // 3600) }}h {{ (app.seconds_used % 3600 // 60) }}m</td>
+                <td><button class="btn btn-secondary btn-xs" onclick="unhideApp(this, '{{ app.process_name }}')">Unhide</button></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
     {% endif %}
 </div>
 {% endblock %}
@@ -49,12 +99,35 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const usage = {{ usage | tojson }};
-    if (usage.length > 0) {
-        const ctx = document.getElementById('usageChart').getContext('2d');
-        const labels = usage.map(u => u.process_name);
-        const data = usage.map(u => Math.round(u.seconds_used / 60));
-        const colors = labels.map((_, i) => `hsl(${(i * 360 / labels.length)}, 70%, 50%)`);
+    function hideApp(btn, name) {
+        const row = btn.closest('tr');
+        row.style.opacity = '0.3';
+        fetch("{{ url_for('main.api_hide') }}", {
+            method: 'POST',
+            body: new URLSearchParams({process_name: name})
+        }).then(() => row.remove());
+    }
+
+    function unhideApp(btn, name) {
+        const row = btn.closest('tr');
+        row.style.opacity = '0.3';
+        fetch("{{ url_for('main.api_unhide') }}", {
+            method: 'POST',
+            body: new URLSearchParams({process_name: name})
+        }).then(() => row.remove());
+    }
+
+    const trackedUsage = {{ tracked_usage | tojson }};
+    const otherUsage = {{ other_usage | tojson }};
+
+    function makeChart(canvasId, data) {
+        if (data.length === 0) return;
+        const el = document.getElementById(canvasId);
+        if (!el) return;
+        const ctx = el.getContext('2d');
+        const labels = data.map(u => u.process_name);
+        const values = data.map(u => Math.round(u.seconds_used / 60));
+        const colors = labels.map((_, i) => `hsl(${(i * 360 / labels.length) + 200}, 70%, 50%)`);
 
         new Chart(ctx, {
             type: 'bar',
@@ -62,17 +135,21 @@
                 labels: labels,
                 datasets: [{
                     label: 'Minutes Used',
-                    data: data,
+                    data: values,
                     backgroundColor: colors,
                     borderRadius: 4
                 }]
             },
             options: {
                 responsive: true,
+                indexAxis: data.length > 8 ? 'y' : 'x',
                 plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'Minutes' } } }
+                scales: { y: { beginAtZero: true } }
             }
         });
     }
+
+    makeChart('trackedChart', trackedUsage);
+    makeChart('usageChart', otherUsage);
 </script>
 {% endblock %}

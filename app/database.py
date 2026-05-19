@@ -62,6 +62,11 @@ def init_db():
             process_name TEXT NOT NULL UNIQUE,
             display_name TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS hidden_apps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            process_name TEXT NOT NULL UNIQUE
+        );
     """)
 
     # Insert default settings if not present
@@ -264,5 +269,29 @@ def add_tracked_app(process_name, display_name):
 def remove_tracked_app(process_name):
     conn = get_db()
     conn.execute("DELETE FROM tracked_apps WHERE process_name = ?", (process_name,))
+    conn.commit()
+    conn.close()
+
+
+def get_hidden_apps():
+    conn = get_db()
+    rows = conn.execute("SELECT process_name FROM hidden_apps").fetchall()
+    conn.close()
+    return {r["process_name"] for r in rows}
+
+
+def hide_app(process_name):
+    conn = get_db()
+    conn.execute(
+        "INSERT OR IGNORE INTO hidden_apps (process_name) VALUES (?)",
+        (process_name,)
+    )
+    conn.commit()
+    conn.close()
+
+
+def unhide_app(process_name):
+    conn = get_db()
+    conn.execute("DELETE FROM hidden_apps WHERE process_name = ?", (process_name,))
     conn.commit()
     conn.close()
