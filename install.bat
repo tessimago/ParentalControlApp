@@ -176,12 +176,13 @@ echo Database initialized.
 :: ---- Step 9: Install Windows Service ----
 echo.
 echo [9/11] Installing Windows Service...
-"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" install
+"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" --startup auto install
 if %errorlevel% neq 0 (
     echo [WARNING] Service installation failed. You can still run manually with run_dev.py
 )
 sc failure ParentalControl reset= 86400 actions= restart/5000/restart/30000/restart/60000 >nul 2>&1
-echo Service installed with auto-recovery.
+sc config ParentalControl start= auto >nul 2>&1
+echo Service installed with auto-start and auto-recovery.
 
 :: ---- Step 10: Register companion process (runs in user session for screenshots) ----
 echo.
