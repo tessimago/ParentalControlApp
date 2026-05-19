@@ -42,7 +42,7 @@ if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYTHON_CMD=%
 :: Python not found - install it
 echo Python not found. Downloading Python 3.11...
 echo (This may take a few minutes)
-powershell -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%PYTHON_INSTALLER_URL%' -OutFile '%TEMP%\python_installer.exe' } catch { Write-Host 'DOWNLOAD_FAILED'; exit 1 }"
+curl -Lo "%TEMP%\python_installer.exe" "%PYTHON_INSTALLER_URL%"
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to download Python. Check your internet connection.
     pause
@@ -57,10 +57,10 @@ if %errorlevel% neq 0 (
 )
 del "%TEMP%\python_installer.exe" 2>nul
 
-:: Refresh PATH from registry
+:: Refresh PATH from registry (append to existing to preserve System32, PowerShell, etc.)
 for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSTEM_PATH=%%B"
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USER_PATH=%%B"
-set "PATH=%SYSTEM_PATH%;%USER_PATH%"
+set "PATH=%PATH%;%SYSTEM_PATH%;%USER_PATH%"
 
 :: Try to find python again
 where python >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
@@ -79,7 +79,7 @@ echo [2/10] Checking for Git...
 where git >nul 2>&1
 if %errorlevel% neq 0 (
     echo Git not found. Downloading Git...
-    powershell -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%GIT_INSTALLER_URL%' -OutFile '%TEMP%\git_installer.exe' } catch { Write-Host 'DOWNLOAD_FAILED'; exit 1 }"
+    curl -Lo "%TEMP%\git_installer.exe" "%GIT_INSTALLER_URL%"
     if %errorlevel% neq 0 (
         echo [ERROR] Failed to download Git. Check your internet connection.
         pause
@@ -90,7 +90,7 @@ if %errorlevel% neq 0 (
     del "%TEMP%\git_installer.exe" 2>nul
     :: Refresh PATH
     for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSTEM_PATH=%%B"
-    set "PATH=%SYSTEM_PATH%;%USER_PATH%;C:\Program Files\Git\cmd"
+    set "PATH=%PATH%;%SYSTEM_PATH%;C:\Program Files\Git\cmd"
     where git >nul 2>&1
     if %errorlevel% neq 0 (
         echo [WARNING] Git installed but PATH not updated. Auto-update feature may not work until reboot.
