@@ -1,8 +1,20 @@
 import os
+import logging
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
+LOG_DIR = os.path.join(DATA_DIR, "logs")
 DB_PATH = os.path.join(DATA_DIR, "parental_control.db")
+
+os.makedirs(LOG_DIR, exist_ok=True)
+
+logging.basicConfig(
+    filename=os.path.join(LOG_DIR, "service.log"),
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("parental_control")
 SCREENSHOTS_DIR = r"C:\ProgramData\ParentalControl\.screenshots"
 VENV_DIR = os.path.join(BASE_DIR, ".venv")
 

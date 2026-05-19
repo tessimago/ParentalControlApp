@@ -39,57 +39,70 @@ class ParentalControlService(win32serviceutil.ServiceFramework):
         self.main()
 
     def main(self):
-        from app.database import init_db
-        from app.monitor import MonitorEngine
-        from app.scheduler import ScheduleEnforcer
-        from app.limiter import AppLimiter
-        from app.screenshots import ScreenshotCapture
-        from app.updater import AutoUpdater
-        from app.tunnel import CloudflareTunnel
-        from app.web import create_app
-        from app.config import DEFAULT_PORT
-        from app.database import get_setting
+        import logging
+        from app.config import logger, DEFAULT_PORT
 
-        init_db()
+        try:
+            from app.database import init_db
+            from app.monitor import MonitorEngine
+            from app.scheduler import ScheduleEnforcer
+            from app.limiter import AppLimiter
+            from app.screenshots import ScreenshotCapture
+            from app.updater import AutoUpdater
+            from app.tunnel import CloudflareTunnel
+            from app.web import create_app
+            from app.database import get_setting
 
-        port = int(get_setting("port") or DEFAULT_PORT)
+            logger.info("Service starting...")
 
-        stop_flag = threading.Event()
+            init_db()
+            logger.info("Database initialized")
 
-        monitor = MonitorEngine(stop_flag)
-        scheduler = ScheduleEnforcer(stop_flag)
-        limiter = AppLimiter(stop_flag)
-        screenshots = ScreenshotCapture(stop_flag)
-        updater = AutoUpdater(stop_flag)
-        tunnel = CloudflareTunnel(stop_flag)
+            port = int(get_setting("port") or DEFAULT_PORT)
 
-        threads = [
-            threading.Thread(target=monitor.run, daemon=True),
-            threading.Thread(target=scheduler.run, daemon=True),
-            threading.Thread(target=limiter.run, daemon=True),
-            threading.Thread(target=screenshots.run, daemon=True),
-            threading.Thread(target=updater.run, daemon=True),
-            threading.Thread(target=tunnel.run, daemon=True),
-        ]
+            stop_flag = threading.Event()
 
-        flask_app = create_app()
-        flask_thread = threading.Thread(
-            target=lambda: flask_app.run(host="0.0.0.0", port=port, threaded=True),
-            daemon=True
-        )
-        threads.append(flask_thread)
+            monitor = MonitorEngine(stop_flag)
+            scheduler = ScheduleEnforcer(stop_flag)
+            limiter = AppLimiter(stop_flag)
+            screenshots = ScreenshotCapture(stop_flag)
+            updater = AutoUpdater(stop_flag)
+            tunnel = CloudflareTunnel(stop_flag)
 
-        for t in threads:
-            t.start()
+            threads = [
+                threading.Thread(target=monitor.run, daemon=True),
+                threading.Thread(target=scheduler.run, daemon=True),
+                threading.Thread(target=limiter.run, daemon=True),
+                threading.Thread(target=screenshots.run, daemon=True),
+                threading.Thread(target=updater.run, daemon=True),
+                threading.Thread(target=tunnel.run, daemon=True),
+            ]
 
-        self.ReportServiceStatus(win32service.SERVICE_RUNNING)
+            flask_app = create_app()
+            flask_thread = threading.Thread(
+                target=lambda: flask_app.run(host="0.0.0.0", port=port, threaded=True),
+                daemon=True
+            )
+            threads.append(flask_thread)
 
-        while self.running:
-            if win32event.WaitForSingleObject(self.stop_event, 1000) == win32event.WAIT_OBJECT_0:
-                break
+            for t in threads:
+                t.start()
 
-        stop_flag.set()
-        time.sleep(2)
+            logger.info(f"All threads started. Flask on port {port}")
+            self.ReportServiceStatus(win32service.SERVICE_RUNNING)
+
+            while self.running:
+                if win32event.WaitForSingleObject(self.stop_event, 1000) == win32event.WAIT_OBJECT_0:
+                    break
+
+            logger.info("Service stopping...")
+            stop_flag.set()
+            time.sleep(2)
+            logger.info("Service stopped")
+
+        except Exception as e:
+            logger.exception(f"Service crashed: {e}")
+            raise
 
 
 if __name__ == "__main__":
