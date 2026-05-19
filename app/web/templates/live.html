@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Live View{% endblock %}
+
+{% block content %}
+<h1>Live Screen</h1>
+
+<div class="card live-card">
+    <img src="{{ url_for('main.live_stream') }}" class="live-stream" alt="Live screen feed">
+    <p class="note">Streaming at ~1 frame per second</p>
+</div>
+{% endblock %}

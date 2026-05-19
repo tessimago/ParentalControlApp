@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title_suffix %} - App Limits{% endblock %}
+
+{% block content %}
+<h1>App Time Limits</h1>
+
+<div class="card">
+    <h3>Add / Update Limit</h3>
+    <form method="POST" action="{{ url_for('main.limits') }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="process_name">Process Name</label>
+                <input type="text" id="process_name" name="process_name" placeholder="e.g. minecraft.exe" required>
+            </div>
+            <div class="form-group">
+                <label for="daily_limit_minutes">Daily Limit (minutes)</label>
+                <input type="number" id="daily_limit_minutes" name="daily_limit_minutes" min="1" required>
+            </div>
+            <div class="form-group">
+                <label for="action">Action</label>
+                <select id="action" name="action">
+                    <option value="warn">Warn only</option>
+                    <option value="kill">Kill process</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Limit</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Current Limits</h3>
+    {% if app_limits %}
+    <table>
+        <thead>
+            <tr>
+                <th>Process</th>
+                <th>Daily Limit</th>
+                <th>Action</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for limit in app_limits %}
+            <tr>
+                <td>{{ limit.process_name }}</td>
+                <td>{{ limit.daily_limit_minutes }} min</td>
+                <td><span class="badge {{ limit.action }}">{{ limit.action }}</span></td>
+                <td>
+                    <form method="POST" action="{{ url_for('main.limits') }}" style="display:inline">
+                        <input type="hidden" name="action_type" value="delete">
+                        <input type="hidden" name="delete_process" value="{{ limit.process_name }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No limits configured.</p>
+    {% endif %}
+</div>
+{% endblock %}

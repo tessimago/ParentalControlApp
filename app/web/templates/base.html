@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parental Control{% block title_suffix %}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('main.static', filename='style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% if session.get('authenticated') %}
+    <nav class="navbar">
+        <div class="nav-brand">Parental Control</div>
+        <div class="nav-links">
+            <a href="{{ url_for('main.dashboard') }}" {% if request.endpoint == 'main.dashboard' %}class="active"{% endif %}>Dashboard</a>
+            <a href="{{ url_for('main.schedule') }}" {% if request.endpoint == 'main.schedule' %}class="active"{% endif %}>Schedule</a>
+            <a href="{{ url_for('main.limits') }}" {% if request.endpoint == 'main.limits' %}class="active"{% endif %}>Limits</a>
+            <a href="{{ url_for('main.history') }}" {% if request.endpoint == 'main.history' %}class="active"{% endif %}>History</a>
+            <a href="{{ url_for('main.screenshots') }}" {% if request.endpoint in ['main.screenshots', 'main.screenshots_date'] %}class="active"{% endif %}>Screenshots</a>
+            <a href="{{ url_for('main.live_view') }}" {% if request.endpoint == 'main.live_view' %}class="active"{% endif %}>Live</a>
+            <a href="{{ url_for('main.settings') }}" {% if request.endpoint == 'main.settings' %}class="active"{% endif %}>Settings</a>
+            <a href="{{ url_for('main.logout') }}" class="logout">Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

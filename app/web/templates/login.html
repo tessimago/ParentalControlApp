@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Login{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h1>Parental Control</h1>
+    <form method="POST" action="{{ url_for('main.login') }}">
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+</div>
+{% endblock %}

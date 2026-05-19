@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Settings{% endblock %}
+
+{% block content %}
+<h1>Settings</h1>
+
+<div class="card">
+    <h3>Change Password</h3>
+    <form method="POST" action="{{ url_for('main.settings') }}">
+        <div class="form-group">
+            <label for="new_password">New Password</label>
+            <input type="password" id="new_password" name="new_password" placeholder="Leave blank to keep current">
+        </div>
+        <button type="submit" class="btn btn-primary">Update Password</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>App Settings</h3>
+    <form method="POST" action="{{ url_for('main.settings') }}">
+        <div class="form-group">
+            <label for="screenshot_interval">Screenshot Interval (seconds)</label>
+            <input type="number" id="screenshot_interval" name="screenshot_interval"
+                   value="{{ settings.screenshot_interval }}" min="60">
+        </div>
+        <div class="form-group">
+            <label for="screenshot_retention_days">Screenshot Retention (days)</label>
+            <input type="number" id="screenshot_retention_days" name="screenshot_retention_days"
+                   value="{{ settings.screenshot_retention_days }}" min="1">
+        </div>
+        <div class="form-group">
+            <label for="update_check_interval">Auto-Update Check Interval (seconds)</label>
+            <input type="number" id="update_check_interval" name="update_check_interval"
+                   value="{{ settings.update_check_interval }}" min="60">
+        </div>
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+</div>
+{% endblock %}

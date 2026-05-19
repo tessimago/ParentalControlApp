@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Screenshots{% endblock %}
+
+{% block content %}
+<h1>Screenshots</h1>
+
+<div class="card">
+    <h3>Browse by Day</h3>
+    <div class="date-list">
+        {% for date in dates %}
+        <a href="{{ url_for('main.screenshots_date', date=date) }}"
+           class="date-link {{ 'active' if date == selected_date else '' }}">
+            {{ date }}
+        </a>
+        {% endfor %}
+    </div>
+    {% if not dates %}
+    <p>No screenshots yet.</p>
+    {% endif %}
+</div>
+
+{% if selected_date %}
+<div class="card">
+    <div class="card-header">
+        <h3>{{ selected_date }}</h3>
+        <form method="POST" action="{{ url_for('main.delete_screenshot_day', date=selected_date) }}"
+              onsubmit="return confirm('Delete ALL screenshots for {{ selected_date }}?')">
+            <button type="submit" class="btn btn-danger btn-sm">Delete Entire Day</button>
+        </form>
+    </div>
+
+    {% if images %}
+    <div class="screenshot-grid">
+        {% for img in images %}
+        <div class="screenshot-item">
+            <a href="{{ url_for('main.screenshot_image', date=selected_date, filename=img) }}" target="_blank">
+                <img src="{{ url_for('main.screenshot_image', date=selected_date, filename=img) }}" loading="lazy">
+            </a>
+            <div class="screenshot-info">
+                <span>{{ img.replace('.jpg', '').replace('-', ':') }}</span>
+                <form method="POST" action="{{ url_for('main.delete_screenshot', date=selected_date, filename=img) }}"
+                      onsubmit="return confirm('Delete this screenshot?')">
+                    <button type="submit" class="btn btn-danger btn-xs">X</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No screenshots for this date.</p>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="card">
+    <a href="{{ url_for('main.live_view') }}" class="btn btn-primary">View Live Screen</a>
+</div>
+{% endblock %}

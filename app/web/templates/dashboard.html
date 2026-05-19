@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Dashboard{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="grid">
+    <div class="card">
+        <h3>Status</h3>
+        <p class="status {{ 'online' if active_users else 'offline' }}">
+            {{ "Child is ON the PC" if active_users else "PC is idle / off" }}
+        </p>
+        <p class="time">{{ now.strftime("%H:%M:%S") }}</p>
+    </div>
+
+    <div class="card">
+        <h3>Today's Schedule</h3>
+        {% if current_schedule %}
+        <p>{{ current_schedule.get('start_time', '?') }} - {{ current_schedule.get('end_time', '?') }}</p>
+        {% if override %}
+        <p class="note">(Extended for today)</p>
+        {% endif %}
+        {% else %}
+        <p>No schedule set</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h3>Today's Usage</h3>
+    {% if usage_today %}
+    <table>
+        <thead>
+            <tr>
+                <th>Application</th>
+                <th>Time Used</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in usage_today %}
+            <tr>
+                <td>{{ app.process_name }}</td>
+                <td>{{ (app.seconds_used // 3600) }}h {{ (app.seconds_used % 3600 // 60) }}m</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No usage recorded today.</p>
+    {% endif %}
+</div>
+{% endblock %}

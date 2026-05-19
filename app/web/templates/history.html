@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title_suffix %} - History{% endblock %}
+
+{% block content %}
+<h1>Usage History</h1>
+
+<div class="card">
+    <div class="form-row">
+        <form method="GET" action="{{ url_for('main.history') }}">
+            <div class="form-group">
+                <label for="date">Select Date</label>
+                <input type="date" id="date" name="date" value="{{ selected_date }}">
+            </div>
+            <button type="submit" class="btn btn-secondary">View</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Usage for {{ selected_date }}</h3>
+    <canvas id="usageChart" width="400" height="200"></canvas>
+</div>
+
+<div class="card">
+    <h3>Details</h3>
+    {% if usage %}
+    <table>
+        <thead>
+            <tr>
+                <th>Application</th>
+                <th>Time Used</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in usage %}
+            <tr>
+                <td>{{ app.process_name }}</td>
+                <td>{{ (app.seconds_used // 3600) }}h {{ (app.seconds_used % 3600 // 60) }}m {{ (app.seconds_used % 60) }}s</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No data for this date.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const usage = {{ usage | tojson }};
+    if (usage.length > 0) {
+        const ctx = document.getElementById('usageChart').getContext('2d');
+        const labels = usage.map(u => u.process_name);
+        const data = usage.map(u => Math.round(u.seconds_used / 60));
+        const colors = labels.map((_, i) => `hsl(${(i * 360 / labels.length)}, 70%, 50%)`);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Minutes Used',
+                    data: data,
+                    backgroundColor: colors,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'Minutes' } } }
+            }
+        });
+    }
+</script>
+{% endblock %}

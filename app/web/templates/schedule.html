@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Schedule{% endblock %}
+
+{% block content %}
+<h1>Weekly Schedule</h1>
+
+<div class="card">
+    <form method="POST" action="{{ url_for('main.schedule') }}">
+        <table>
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for schedule in schedules %}
+                <tr>
+                    <td>{{ day_names[schedule.day_of_week] }}</td>
+                    <td><input type="time" name="start_{{ schedule.day_of_week }}" value="{{ schedule.start_time }}"></td>
+                    <td><input type="time" name="end_{{ schedule.day_of_week }}" value="{{ schedule.end_time }}"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="submit" class="btn btn-primary">Save Schedule</button>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Extend Today's Schedule</h3>
+    <p>Override today's end time for a special occasion.</p>
+    <form method="POST" action="{{ url_for('main.schedule_extend') }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="start_time">Start</label>
+                <input type="time" id="start_time" name="start_time" value="{{ override.start_time if override else '06:00' }}">
+            </div>
+            <div class="form-group">
+                <label for="end_time">End</label>
+                <input type="time" id="end_time" name="end_time" value="{{ override.end_time if override else '' }}">
+            </div>
+            <button type="submit" class="btn btn-secondary">Extend Today</button>
+        </div>
+    </form>
+    {% if override %}
+    <p class="note">Current override: {{ override.start_time }} - {{ override.end_time }}</p>
+    {% endif %}
+</div>
+{% endblock %}
