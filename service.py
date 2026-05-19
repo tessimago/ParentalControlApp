@@ -2,16 +2,30 @@ import os
 import sys
 import threading
 import time
+import traceback
+
+# Ensure the project root is on the path and set working directory
+_SERVICE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _SERVICE_DIR)
+os.chdir(_SERVICE_DIR)
 
 import servicemanager
 import win32event
 import win32service
 import win32serviceutil
 
-# Ensure the project root is on the path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 from app.config import SERVICE_NAME, SERVICE_DISPLAY_NAME, SERVICE_DESCRIPTION
+
+
+def _crash_log(msg):
+    """Write to a crash log file without depending on our logging module."""
+    try:
+        log_dir = os.path.join(_SERVICE_DIR, "data", "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        with open(os.path.join(log_dir, "crash.log"), "a") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+    except Exception:
+        pass
 
 
 class ParentalControlService(win32serviceutil.ServiceFramework):
@@ -30,13 +44,17 @@ class ParentalControlService(win32serviceutil.ServiceFramework):
         win32event.SetEvent(self.stop_event)
 
     def SvcDoRun(self):
-        self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
-        servicemanager.LogMsg(
-            servicemanager.EVENTLOG_INFORMATION_TYPE,
-            servicemanager.PYS_SERVICE_STARTED,
-            (self._svc_name_, "")
-        )
-        self.main()
+        try:
+            self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
+            servicemanager.LogMsg(
+                servicemanager.EVENTLOG_INFORMATION_TYPE,
+                servicemanager.PYS_SERVICE_STARTED,
+                (self._svc_name_, "")
+            )
+            self.main()
+        except Exception as e:
+            _crash_log(f"SvcDoRun crashed: {e}\n{traceback.format_exc()}")
+            raise
 
     def main(self):
         import logging
