@@ -30,6 +30,7 @@ class ParentalControlService(win32serviceutil.ServiceFramework):
         win32event.SetEvent(self.stop_event)
 
     def SvcDoRun(self):
+        self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
         servicemanager.LogMsg(
             servicemanager.EVENTLOG_INFORMATION_TYPE,
             servicemanager.PYS_SERVICE_STARTED,
@@ -80,6 +81,8 @@ class ParentalControlService(win32serviceutil.ServiceFramework):
 
         for t in threads:
             t.start()
+
+        self.ReportServiceStatus(win32service.SERVICE_RUNNING)
 
         while self.running:
             if win32event.WaitForSingleObject(self.stop_event, 1000) == win32event.WAIT_OBJECT_0:
