@@ -56,6 +56,12 @@ def init_db():
 
         CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_date_process
             ON usage_logs(date, process_name);
+
+        CREATE TABLE IF NOT EXISTS tracked_apps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            process_name TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL
+        );
     """)
 
     # Insert default settings if not present
@@ -67,6 +73,11 @@ def init_db():
         "update_check_interval": "900",
         "schedule_enabled": "0",
         "limiter_enabled": "0",
+        "parent_name": "Parent",
+        "language": "en",
+        "telegram_bot_token": "",
+        "telegram_chat_id": "",
+        "tunnel_url": "",
     }
     for key, value in defaults.items():
         cursor.execute(
@@ -231,3 +242,27 @@ def get_usage_range(start_date, end_date):
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_tracked_apps():
+    conn = get_db()
+    rows = conn.execute("SELECT * FROM tracked_apps ORDER BY display_name").fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def add_tracked_app(process_name, display_name):
+    conn = get_db()
+    conn.execute(
+        "INSERT OR REPLACE INTO tracked_apps (process_name, display_name) VALUES (?, ?)",
+        (process_name, display_name)
+    )
+    conn.commit()
+    conn.close()
+
+
+def remove_tracked_app(process_name):
+    conn = get_db()
+    conn.execute("DELETE FROM tracked_apps WHERE process_name = ?", (process_name,))
+    conn.commit()
+    conn.close()

@@ -12,7 +12,8 @@ from app.web.auth import login_required, check_password, change_password
 from app.database import (
     get_schedules, update_schedule, set_override, get_override_for_date,
     get_app_limits, set_app_limit, delete_app_limit,
-    get_usage_for_date, get_usage_range, get_setting, set_setting
+    get_usage_for_date, get_usage_range, get_setting, set_setting,
+    get_tracked_apps, add_tracked_app, remove_tracked_app
 )
 from app.screenshots import (
     capture_frame, get_screenshot_dates, get_screenshots_for_date, get_screenshot_path
@@ -46,7 +47,6 @@ def logout():
 @bp.route("/")
 @login_required
 def dashboard():
-    from app.monitor import MonitorEngine
     import psutil
 
     today = datetime.now().strftime("%Y-%m-%d")
@@ -66,14 +66,160 @@ def dashboard():
 
     active_users = len(psutil.users()) > 0
 
+    # Get tracked apps and check which are currently running
+    tracked = get_tracked_apps()
+    running_processes = set()
+    for proc in psutil.process_iter(["name"]):
+        try:
+            running_processes.add(proc.info["name"].lower())
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    tracked_status = []
+    for app in tracked:
+        tracked_status.append({
+            "process_name": app["process_name"],
+            "display_name": app["display_name"],
+            "is_running": app["process_name"].lower() in running_processes,
+        })
+
     return render_template(
         "dashboard.html",
         usage_today=usage_today,
         current_schedule=current_schedule,
         now=now,
         active_users=active_users,
-        override=override
+        override=override,
+        tracked_status=tracked_status
     )
+
+
+@bp.route("/api/dashboard")
+@login_required
+def api_dashboard():
+    import psutil
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    usage_today = get_usage_for_date(today)
+    active_users = len(psutil.users()) > 0
+
+    running_processes = set()
+    for proc in psutil.process_iter(["name"]):
+        try:
+            running_processes.add(proc.info["name"].lower())
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    tracked = get_tracked_apps()
+    tracked_status = []
+    for app in tracked:
+        tracked_status.append({
+            "process_name": app["process_name"],
+            "display_name": app["display_name"],
+            "is_running": app["process_name"].lower() in running_processes,
+        })
+
+    return jsonify({
+        "active_users": active_users,
+        "time": datetime.now().strftime("%H:%M:%S"),
+        "tracked": tracked_status,
+        "usage": usage_today
+    })
+
+
+# --- Send Message ---
+
+@bp.route("/message", methods=["POST"])
+@login_required
+def send_message():
+    from app.warning import send_popup
+    from app.i18n import t
+    message = request.form.get("message", "").strip()
+    timeout = int(request.form.get("timeout", 60))
+    if message:
+        parent_name = get_setting("parent_name") or "Parent"
+        send_popup(message, timeout=timeout, parent_name=parent_name)
+        flash(t("message_sent"), "success")
+    return redirect(url_for("main.dashboard"))
+
+
+# --- Kill Process ---
+
+@bp.route("/kill", methods=["POST"])
+@login_required
+def kill_process():
+    import psutil
+    process_name = request.form.get("process_name", "").lower()
+    killed = 0
+    for proc in psutil.process_iter(["name"]):
+        try:
+            if proc.info["name"].lower() == process_name:
+                proc.kill()
+                killed += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    if killed:
+        flash(f"Killed {killed} instance(s) of {process_name}", "success")
+    else:
+        flash(f"{process_name} is not running", "error")
+    return redirect(url_for("main.dashboard"))
+
+
+# --- Tracked Apps ---
+
+@bp.route("/tracked")
+@login_required
+def tracked():
+    import psutil
+    from app.config import IGNORED_PROCESSES
+
+    tracked_apps = get_tracked_apps()
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Get all currently running non-system processes
+    running = set()
+    for proc in psutil.process_iter(["name"]):
+        try:
+            name = proc.info["name"].lower()
+            if name not in IGNORED_PROCESSES:
+                running.add(name)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    # Also include processes from today's usage that aren't running now
+    usage_today = get_usage_for_date(today)
+    all_processes = sorted(running | {u["process_name"] for u in usage_today})
+
+    tracked_names = {a["process_name"] for a in tracked_apps}
+
+    return render_template(
+        "tracked.html",
+        tracked_apps=tracked_apps,
+        all_processes=all_processes,
+        tracked_names=tracked_names
+    )
+
+
+@bp.route("/tracked", methods=["POST"])
+@login_required
+def tracked_update():
+    action_type = request.form.get("action_type")
+
+    if action_type == "remove":
+        process_name = request.form.get("process_name")
+        if process_name:
+            remove_tracked_app(process_name)
+            flash(f"Removed {process_name} from watchlist", "success")
+    else:
+        process_name = request.form.get("process_name", "").strip().lower()
+        display_name = request.form.get("display_name", "").strip()
+        if process_name:
+            if not display_name:
+                display_name = process_name.replace(".exe", "").title()
+            add_tracked_app(process_name, display_name)
+            flash(f"Added {display_name} to watchlist", "success")
+
+    return redirect(url_for("main.tracked"))
 
 
 # --- Schedule ---
@@ -239,6 +385,11 @@ def settings():
         "update_check_interval": get_setting("update_check_interval") or "900",
         "schedule_enabled": get_setting("schedule_enabled") or "0",
         "limiter_enabled": get_setting("limiter_enabled") or "0",
+        "parent_name": get_setting("parent_name") or "Parent",
+        "language": get_setting("language") or "en",
+        "telegram_bot_token": get_setting("telegram_bot_token") or "",
+        "telegram_chat_id": get_setting("telegram_chat_id") or "",
+        "tunnel_url": get_setting("tunnel_url") or "",
     }
     return render_template("settings.html", settings=current_settings)
 
@@ -246,18 +397,31 @@ def settings():
 @bp.route("/settings", methods=["POST"])
 @login_required
 def settings_update():
+    from app.i18n import t
+
     new_password = request.form.get("new_password")
     if new_password:
         change_password(new_password)
-        flash("Password changed", "success")
+        flash(t("password_changed"), "success")
 
     for key in ["screenshot_interval", "screenshot_retention_days", "update_check_interval"]:
         value = request.form.get(key)
         if value:
             set_setting(key, value)
 
+    parent_name = request.form.get("parent_name", "").strip()
+    if parent_name:
+        set_setting("parent_name", parent_name)
+
+    language = request.form.get("language", "en")
+    set_setting("language", language)
+
+    for key in ["telegram_bot_token", "telegram_chat_id"]:
+        value = request.form.get(key, "").strip()
+        set_setting(key, value)
+
     set_setting("schedule_enabled", "1" if request.form.get("schedule_enabled") else "0")
     set_setting("limiter_enabled", "1" if request.form.get("limiter_enabled") else "0")
 
-    flash("Settings updated", "success")
+    flash(t("settings_updated"), "success")
     return redirect(url_for("main.settings"))

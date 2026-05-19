@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title_suffix %} - Tracked Apps{% endblock %}
+
+{% block content %}
+<h1>Tracked Apps (Watchlist)</h1>
+
+<div class="card">
+    <h3>Add to Watchlist</h3>
+    <p class="note">Select a process from the list or type a custom name. These will appear on your dashboard.</p>
+    <form method="POST" action="{{ url_for('main.tracked') }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="process_name">Process Name</label>
+                <input type="text" id="process_name" name="process_name" list="process_list" placeholder="e.g. roblox.exe" required>
+                <datalist id="process_list">
+                    {% for proc in all_processes %}
+                    {% if proc not in tracked_names %}
+                    <option value="{{ proc }}">
+                    {% endif %}
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="form-group">
+                <label for="display_name">Display Name (optional)</label>
+                <input type="text" id="display_name" name="display_name" placeholder="e.g. Roblox">
+            </div>
+            <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Currently Tracked</h3>
+    {% if tracked_apps %}
+    <table>
+        <thead>
+            <tr>
+                <th>Display Name</th>
+                <th>Process</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in tracked_apps %}
+            <tr>
+                <td>{{ app.display_name }}</td>
+                <td class="process-name">{{ app.process_name }}</td>
+                <td>
+                    <form method="POST" action="{{ url_for('main.tracked') }}" style="display:inline">
+                        <input type="hidden" name="action_type" value="remove">
+                        <input type="hidden" name="process_name" value="{{ app.process_name }}">
+                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No apps being tracked yet. Add some above!</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Running Processes (right now)</h3>
+    <div class="process-list">
+        {% for proc in all_processes %}
+        <span class="process-tag {{ 'tracked' if proc in tracked_names else '' }}">{{ proc }}</span>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

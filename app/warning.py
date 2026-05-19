@@ -1,9 +1,39 @@
 import subprocess
 import ctypes
 import os
+import sys
+
+from app.config import BASE_DIR, VENV_DIR
 
 
 def send_warning(message, timeout=30):
+    """Show a fullscreen popup for system warnings (schedule, limits)."""
+    _launch_popup(message, timeout, header="PARENTAL CONTROL")
+
+
+def send_popup(message, timeout=60, parent_name="Parent"):
+    """Show a fullscreen popup with custom parent name."""
+    _launch_popup(message, timeout, header=parent_name)
+
+
+def _launch_popup(message, timeout, header="PARENTAL CONTROL"):
+    popup_script = os.path.join(BASE_DIR, "app", "popup.py")
+    python_exe = os.path.join(VENV_DIR, "Scripts", "pythonw.exe")
+
+    if not os.path.exists(python_exe):
+        python_exe = sys.executable
+
+    try:
+        subprocess.Popen(
+            [python_exe, popup_script, message, str(timeout), header],
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        )
+    except Exception:
+        _fallback_msg(message, timeout)
+
+
+def _fallback_msg(message, timeout):
+    """Fallback to Windows msg command if popup fails."""
     try:
         subprocess.run(
             ["msg", "*", f"/TIME:{timeout}", message],
@@ -11,12 +41,11 @@ def send_warning(message, timeout=30):
             capture_output=True
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        _fallback_warning(message, timeout)
+        _fallback_wts(message, timeout)
 
 
-def _fallback_warning(message, timeout):
+def _fallback_wts(message, timeout):
     try:
-        # WTSSendMessage via ctypes as fallback
         wtsapi = ctypes.windll.wtsapi32
         kernel32 = ctypes.windll.kernel32
         WTS_CURRENT_SERVER_HANDLE = 0
@@ -33,7 +62,7 @@ def _fallback_warning(message, timeout):
             len("Parental Control") * 2,
             message,
             len(message) * 2,
-            0x00000030,  # MB_ICONWARNING
+            0x00000030,
             timeout,
             ctypes.byref(response),
             False

@@ -1,55 +1,92 @@
 {% extends "base.html" %}
-{% block title_suffix %} - Settings{% endblock %}
+{% block title_suffix %} - {{ t.settings }}{% endblock %}
 
 {% block content %}
-<h1>Settings</h1>
+<h1>{{ t.settings }}</h1>
 
 <div class="card">
-    <h3>Change Password</h3>
+    <h3>{{ t.change_password }}</h3>
     <form method="POST" action="{{ url_for('main.settings') }}">
         <div class="form-group">
-            <label for="new_password">New Password</label>
-            <input type="password" id="new_password" name="new_password" placeholder="Leave blank to keep current">
+            <label for="new_password">{{ t.new_password }}</label>
+            <input type="password" id="new_password" name="new_password" placeholder="{{ t.keep_current }}">
         </div>
-        <button type="submit" class="btn btn-primary">Update Password</button>
+        <button type="submit" class="btn btn-primary">{{ t.update_password }}</button>
     </form>
 </div>
 
 <div class="card">
-    <h3>Enforcement Controls</h3>
+    <h3>{{ t.enforcement_controls }}</h3>
     <form method="POST" action="{{ url_for('main.settings') }}">
         <div class="form-group toggle-group">
             <label class="toggle-label">
                 <input type="checkbox" name="schedule_enabled" value="1"
                        {{ 'checked' if settings.schedule_enabled == '1' else '' }}>
-                <span>Schedule Enforcement (shutdown outside allowed times)</span>
+                <span>{{ t.schedule_enforcement }}</span>
             </label>
         </div>
         <div class="form-group toggle-group">
             <label class="toggle-label">
                 <input type="checkbox" name="limiter_enabled" value="1"
                        {{ 'checked' if settings.limiter_enabled == '1' else '' }}>
-                <span>App Time Limits (kill/warn when exceeded)</span>
+                <span>{{ t.app_time_limits }}</span>
             </label>
         </div>
 
-        <h3>App Settings</h3>
+        <h3>{{ t.app_settings }}</h3>
         <div class="form-group">
-            <label for="screenshot_interval">Screenshot Interval (seconds)</label>
+            <label for="parent_name">{{ t.parent_name }}</label>
+            <input type="text" id="parent_name" name="parent_name"
+                   value="{{ settings.parent_name }}" placeholder="e.g. Mom, Dad, Papa">
+        </div>
+        <div class="form-group">
+            <label for="language">{{ t.language }}</label>
+            <select id="language" name="language">
+                <option value="en" {{ 'selected' if settings.language == 'en' else '' }}>English</option>
+                <option value="pt" {{ 'selected' if settings.language == 'pt' else '' }}>Português</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="screenshot_interval">{{ t.screenshot_interval }}</label>
             <input type="number" id="screenshot_interval" name="screenshot_interval"
                    value="{{ settings.screenshot_interval }}" min="60">
         </div>
         <div class="form-group">
-            <label for="screenshot_retention_days">Screenshot Retention (days)</label>
+            <label for="screenshot_retention_days">{{ t.screenshot_retention }}</label>
             <input type="number" id="screenshot_retention_days" name="screenshot_retention_days"
                    value="{{ settings.screenshot_retention_days }}" min="1">
         </div>
         <div class="form-group">
-            <label for="update_check_interval">Auto-Update Check Interval (seconds)</label>
+            <label for="update_check_interval">{{ t.update_interval }}</label>
             <input type="number" id="update_check_interval" name="update_check_interval"
                    value="{{ settings.update_check_interval }}" min="60">
         </div>
-        <button type="submit" class="btn btn-primary">Save Settings</button>
+        <h3>Remote Access & Notifications</h3>
+        {% if settings.tunnel_url %}
+        <div class="form-group">
+            <label>Current Remote URL</label>
+            <div class="tunnel-url">
+                <a href="{{ settings.tunnel_url }}" target="_blank">{{ settings.tunnel_url }}</a>
+            </div>
+            <p class="note">This URL changes when the app restarts. You'll get a Telegram notification with the new one.</p>
+        </div>
+        {% else %}
+        <p class="note">Remote URL will appear here once the tunnel connects (auto-starts with the app).</p>
+        {% endif %}
+        <div class="form-group">
+            <label for="telegram_bot_token">Telegram Bot Token</label>
+            <input type="password" id="telegram_bot_token" name="telegram_bot_token"
+                   value="{{ settings.telegram_bot_token }}" placeholder="e.g. 123456789:ABCdefGhIjKlmNoPqRsTuVwXyZ">
+            <p class="note">Get it from @BotFather on Telegram. Send /newbot and follow instructions.</p>
+        </div>
+        <div class="form-group">
+            <label for="telegram_chat_id">Telegram Chat ID</label>
+            <input type="text" id="telegram_chat_id" name="telegram_chat_id"
+                   value="{{ settings.telegram_chat_id }}" placeholder="e.g. 123456789">
+            <p class="note">Send a message to your bot, then visit https://api.telegram.org/bot[TOKEN]/getUpdates to find your chat ID.</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary">{{ t.save_settings }}</button>
     </form>
 </div>
 {% endblock %}

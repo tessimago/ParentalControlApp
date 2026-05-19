@@ -9,6 +9,7 @@ from app.scheduler import ScheduleEnforcer
 from app.limiter import AppLimiter
 from app.screenshots import ScreenshotCapture
 from app.updater import AutoUpdater
+from app.tunnel import CloudflareTunnel
 from app.web import create_app
 from app.config import DEFAULT_PORT
 from app.database import get_setting
@@ -24,6 +25,7 @@ def main():
     limiter = AppLimiter(stop_flag)
     screenshots = ScreenshotCapture(stop_flag)
     updater = AutoUpdater(stop_flag)
+    tunnel = CloudflareTunnel(stop_flag)
 
     threads = [
         threading.Thread(target=monitor.run, daemon=True),
@@ -31,6 +33,7 @@ def main():
         threading.Thread(target=limiter.run, daemon=True),
         threading.Thread(target=screenshots.run, daemon=True),
         threading.Thread(target=updater.run, daemon=True),
+        threading.Thread(target=tunnel.run, daemon=True),
     ]
 
     for t in threads:

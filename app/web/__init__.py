@@ -12,6 +12,11 @@ def create_app():
     )
     app.secret_key = os.urandom(24)
 
+    @app.context_processor
+    def inject_translations():
+        from app.i18n import get_translations
+        return {"t": get_translations()}
+
     from app.web.routes import bp
     app.register_blueprint(bp)
 
