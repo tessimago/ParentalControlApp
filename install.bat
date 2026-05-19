@@ -43,14 +43,14 @@ if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYTHON_CMD=%
 echo Python not found. Downloading Python 3.11...
 echo (This may take a few minutes)
 curl -Lo "%TEMP%\python_installer.exe" "%PYTHON_INSTALLER_URL%"
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Failed to download Python. Check your internet connection.
     pause
     exit /b 1
 )
 echo Installing Python silently...
 "%TEMP%\python_installer.exe" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_launcher=1
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Python installation failed.
     pause
     exit /b 1
@@ -77,51 +77,53 @@ echo Python found: %PYTHON_CMD%
 echo.
 echo [2/10] Checking for Git...
 where git >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Git not found. Downloading Git...
-    curl -Lo "%TEMP%\git_installer.exe" "%GIT_INSTALLER_URL%"
-    if %errorlevel% neq 0 (
-        echo [ERROR] Failed to download Git. Check your internet connection.
-        pause
-        exit /b 1
-    )
-    echo Installing Git silently...
-    "%TEMP%\git_installer.exe" /VERYSILENT /NORESTART /SP-
-    del "%TEMP%\git_installer.exe" 2>nul
-    :: Refresh PATH
-    for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSTEM_PATH=%%B"
-    set "PATH=%PATH%;%SYSTEM_PATH%;C:\Program Files\Git\cmd"
-    where git >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo [WARNING] Git installed but PATH not updated. Auto-update feature may not work until reboot.
-    ) else (
-        echo Git installed.
-    )
-) else (
+if !errorlevel! equ 0 (
     echo Git found.
+    goto :git_done
 )
+echo Git not found. Downloading Git...
+curl -Lo "%TEMP%\git_installer.exe" "%GIT_INSTALLER_URL%"
+if !errorlevel! neq 0 (
+    echo [ERROR] Failed to download Git. Check your internet connection.
+    pause
+    exit /b 1
+)
+echo Installing Git silently...
+"%TEMP%\git_installer.exe" /VERYSILENT /NORESTART /SP-
+del "%TEMP%\git_installer.exe" 2>nul
+:: Refresh PATH
+for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSTEM_PATH=%%B"
+set "PATH=%PATH%;%SYSTEM_PATH%;C:\Program Files\Git\cmd"
+where git >nul 2>&1
+if !errorlevel! neq 0 (
+    echo [WARNING] Git installed but PATH not updated. Auto-update feature may not work until reboot.
+) else (
+    echo Git installed.
+)
+:git_done
 
 :: ---- Step 3: Create virtual environment ----
 echo.
 echo [3/10] Creating virtual environment...
-if not exist "%VENV_DIR%\Scripts\python.exe" (
-    "%PYTHON_CMD%" -m venv "%VENV_DIR%"
-    if %errorlevel% neq 0 (
-        echo [ERROR] Failed to create virtual environment.
-        pause
-        exit /b 1
-    )
-    echo Virtual environment created.
-) else (
+if exist "%VENV_DIR%\Scripts\python.exe" (
     echo Virtual environment already exists.
+    goto :venv_done
 )
+"%PYTHON_CMD%" -m venv "%VENV_DIR%"
+if !errorlevel! neq 0 (
+    echo [ERROR] Failed to create virtual environment.
+    pause
+    exit /b 1
+)
+echo Virtual environment created.
+:venv_done
 
 :: ---- Step 4: Install dependencies ----
 echo.
 echo [4/10] Installing dependencies...
 "%VENV_DIR%\Scripts\pip.exe" install --upgrade pip --quiet
 "%VENV_DIR%\Scripts\pip.exe" install -r "%PROJECT_DIR%\requirements.txt" --quiet
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
     exit /b 1
@@ -132,14 +134,12 @@ echo Dependencies installed.
 echo.
 echo [5/11] Configuring pywin32...
 "%VENV_DIR%\Scripts\python.exe" "%VENV_DIR%\Scripts\pywin32_postinstall.py" -install >nul 2>&1
-if %errorlevel% neq 0 (
-    :: Try alternate location
-    "%VENV_DIR%\Scripts\python.exe" -c "import win32serviceutil" >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo [WARNING] pywin32 post-install may have issues. Service might not register.
-    )
+"%VENV_DIR%\Scripts\python.exe" -c "import win32serviceutil" >nul 2>&1
+if !errorlevel! neq 0 (
+    echo [WARNING] pywin32 post-install may have issues. Service might not register.
+) else (
+    echo pywin32 configured.
 )
-echo pywin32 configured.
 
 :: ---- Step 6: Create hidden screenshots folder ----
 echo.
@@ -166,7 +166,7 @@ if not exist "%PROJECT_DIR%\data" (
 echo.
 echo [8/11] Initializing database...
 "%VENV_DIR%\Scripts\python.exe" -c "import sys, os; sys.path.insert(0, os.path.abspath(r'%PROJECT_DIR%')); from app.database import init_db; init_db()"
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [ERROR] Database initialization failed.
     pause
     exit /b 1
@@ -177,7 +177,7 @@ echo Database initialized.
 echo.
 echo [9/11] Installing Windows Service...
 "%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" --startup auto install
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [WARNING] Service installation failed. You can still run manually with run_dev.py
 )
 sc failure ParentalControl reset= 86400 actions= restart/5000/restart/30000/restart/60000 >nul 2>&1
@@ -188,7 +188,7 @@ echo Service installed with auto-start and auto-recovery.
 echo.
 echo [10/11] Registering companion process for screenshots...
 schtasks /create /tn "ParentalControlCompanion" /tr "\"%VENV_DIR%\Scripts\pythonw.exe\" \"%PROJECT_DIR%\companion.pyw\"" /sc onlogon /rl highest /f >nul 2>&1
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [WARNING] Could not register companion task. Screenshots may not work from service.
 ) else (
     echo Companion registered to run at login.
@@ -200,7 +200,7 @@ start "" "%VENV_DIR%\Scripts\pythonw.exe" "%PROJECT_DIR%\companion.pyw"
 echo.
 echo [11/11] Starting service...
 "%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" start
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo [WARNING] Service failed to start. Try: run_dev.py for testing.
 )
 echo Service started.
