@@ -65,6 +65,8 @@ def init_db():
         "screenshot_interval": "300",
         "screenshot_retention_days": "30",
         "update_check_interval": "900",
+        "schedule_enabled": "0",
+        "limiter_enabled": "0",
     }
     for key, value in defaults.items():
         cursor.execute(

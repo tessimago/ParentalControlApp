@@ -4,7 +4,7 @@ import threading
 import psutil
 
 from app.config import LIMITER_CHECK_INTERVAL
-from app.database import get_app_limits, get_usage_for_process_today
+from app.database import get_app_limits, get_usage_for_process_today, get_setting
 from app.warning import send_warning
 
 
@@ -22,6 +22,9 @@ class AppLimiter:
             self.stop_flag.wait(LIMITER_CHECK_INTERVAL)
 
     def _tick(self):
+        if get_setting("limiter_enabled") != "1":
+            return
+
         limits = get_app_limits()
         for limit in limits:
             process_name = limit["process_name"]

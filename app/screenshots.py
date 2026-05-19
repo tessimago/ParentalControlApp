@@ -1,25 +1,45 @@
 import os
 import io
-import time
 import shutil
 import threading
 from datetime import datetime, timedelta
 
-import mss
-from PIL import Image
-
-from app.config import SCREENSHOTS_DIR, SCREENSHOT_INTERVAL, SCREENSHOT_RETENTION_DAYS
+from app.config import SCREENSHOTS_DIR, SCREENSHOT_INTERVAL, SCREENSHOT_RETENTION_DAYS, DATA_DIR
 from app.database import get_setting
+
+LIVE_FRAME_PATH = os.path.join(DATA_DIR, "live_frame.jpg")
 
 
 class ScreenshotCapture:
+    """
+    When running as a service (Session 0), screenshots are handled by the
+    companion process. This thread only handles cleanup of old screenshots.
+    When running in dev mode (run_dev.py), it captures directly.
+    """
     def __init__(self, stop_flag: threading.Event):
         self.stop_flag = stop_flag
+        self.is_session_0 = self._detect_session_0()
+
+    def _detect_session_0(self):
+        try:
+            import ctypes
+            session_id = ctypes.windll.kernel32.WTSGetActiveConsoleSessionId()
+            current_session = ctypes.windll.kernel32.ProcessIdToSessionId(
+                os.getpid(), ctypes.byref(ctypes.c_ulong())
+            )
+            # If we can grab a screen, we're not in Session 0
+            import mss
+            with mss.mss() as sct:
+                sct.grab(sct.monitors[0])
+            return False
+        except Exception:
+            return True
 
     def run(self):
         while not self.stop_flag.is_set():
             try:
-                self._capture_and_save()
+                if not self.is_session_0:
+                    self._capture_and_save()
                 self._cleanup_old()
             except Exception:
                 pass
@@ -27,6 +47,9 @@ class ScreenshotCapture:
             self.stop_flag.wait(interval)
 
     def _capture_and_save(self):
+        import mss
+        from PIL import Image
+
         now = datetime.now()
         day_folder = os.path.join(SCREENSHOTS_DIR, now.strftime("%Y-%m-%d"))
         os.makedirs(day_folder, exist_ok=True)
@@ -59,13 +82,35 @@ class ScreenshotCapture:
 
 
 def capture_frame():
-    with mss.mss() as sct:
-        screenshot = sct.grab(sct.monitors[0])
-        img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
-        img = img.resize((img.width // 2, img.height // 2), Image.LANCZOS)
-        buffer = io.BytesIO()
-        img.save(buffer, "JPEG", quality=60)
-        return buffer.getvalue()
+    """
+    Get a live frame. First try reading from the companion process's shared file.
+    If that's stale or missing, try capturing directly.
+    """
+    # Try companion's live frame first
+    if os.path.exists(LIVE_FRAME_PATH):
+        try:
+            age = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(LIVE_FRAME_PATH))).total_seconds()
+            if age < 5:
+                with open(LIVE_FRAME_PATH, "rb") as f:
+                    return f.read()
+        except Exception:
+            pass
+
+    # Fallback: try direct capture (works in dev mode)
+    try:
+        import mss
+        from PIL import Image
+
+        with mss.mss() as sct:
+            screenshot = sct.grab(sct.monitors[0])
+            img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+            img = img.resize((img.width // 2, img.height // 2), Image.LANCZOS)
+            buffer = io.BytesIO()
+            img.save(buffer, "JPEG", quality=60)
+            return buffer.getvalue()
+    except Exception:
+        # Return a placeholder
+        return b""
 
 
 def get_screenshot_dates():

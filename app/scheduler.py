@@ -3,7 +3,7 @@ import threading
 from datetime import datetime
 
 from app.config import SCHEDULE_CHECK_INTERVAL
-from app.database import get_schedule_for_day, get_override_for_date
+from app.database import get_schedule_for_day, get_override_for_date, get_setting
 from app.warning import send_warning, trigger_shutdown
 
 
@@ -22,6 +22,9 @@ class ScheduleEnforcer:
             self.stop_flag.wait(SCHEDULE_CHECK_INTERVAL)
 
     def _tick(self):
+        if get_setting("schedule_enabled") != "1":
+            return
+
         now = datetime.now()
         current_time = now.strftime("%H:%M")
         today_str = now.strftime("%Y-%m-%d")

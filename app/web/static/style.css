@@ -211,6 +211,25 @@ th {
     margin-bottom: 24px;
 }
 
+/* Toggles */
+.toggle-group {
+    margin-bottom: 10px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.toggle-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #4fc3f7;
+}
+
 /* Screenshots */
 .date-list {
     display: flex;

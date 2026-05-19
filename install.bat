@@ -21,56 +21,129 @@ echo ============================================================
 echo.
 
 set "PROJECT_DIR=%~dp0"
-set "VENV_DIR=%PROJECT_DIR%.venv"
+:: Remove trailing backslash for safety
+if "%PROJECT_DIR:~-1%"=="\" set "PROJECT_DIR=%PROJECT_DIR:~0,-1%"
+set "VENV_DIR=%PROJECT_DIR%\.venv"
 set "SCREENSHOTS_DIR=C:\ProgramData\ParentalControl\.screenshots"
 set "PYTHON_INSTALLER_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
 set "GIT_INSTALLER_URL=https://github.com/git-for-windows/git/releases/download/v2.44.0.windows.1/Git-2.44.0-64-bit.exe"
 
 :: ---- Step 1: Check Python ----
-echo [1/9] Checking for Python...
-python --version >nul 2>&1
+echo [1/10] Checking for Python...
+set "PYTHON_CMD="
+
+:: Try common locations
+where python >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
+if exist "C:\Program Files\Python311\python.exe" set "PYTHON_CMD=C:\Program Files\Python311\python.exe" && goto :python_found
+if exist "C:\Program Files\Python312\python.exe" set "PYTHON_CMD=C:\Program Files\Python312\python.exe" && goto :python_found
+if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe" && goto :python_found
+if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python312\python.exe" && goto :python_found
+
+:: Python not found - install it
+echo Python not found. Downloading Python 3.11...
+echo (This may take a few minutes)
+powershell -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%PYTHON_INSTALLER_URL%' -OutFile '%TEMP%\python_installer.exe' } catch { Write-Host 'DOWNLOAD_FAILED'; exit 1 }"
 if %errorlevel% neq 0 (
-    echo Python not found. Downloading and installing Python 3.11...
-    powershell -Command "Invoke-WebRequest -Uri '%PYTHON_INSTALLER_URL%' -OutFile '%TEMP%\python_installer.exe'"
-    "%TEMP%\python_installer.exe" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
-    del "%TEMP%\python_installer.exe"
-    echo Python installed. You may need to restart this script for PATH changes to take effect.
-    :: Refresh PATH
-    set "PATH=C:\Program Files\Python311;C:\Program Files\Python311\Scripts;%PATH%"
-) else (
-    echo Python found.
+    echo [ERROR] Failed to download Python. Check your internet connection.
+    pause
+    exit /b 1
 )
+echo Installing Python silently...
+"%TEMP%\python_installer.exe" /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_launcher=1
+if %errorlevel% neq 0 (
+    echo [ERROR] Python installation failed.
+    pause
+    exit /b 1
+)
+del "%TEMP%\python_installer.exe" 2>nul
+
+:: Refresh PATH from registry
+for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSTEM_PATH=%%B"
+for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USER_PATH=%%B"
+set "PATH=%SYSTEM_PATH%;%USER_PATH%"
+
+:: Try to find python again
+where python >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
+if exist "C:\Program Files\Python311\python.exe" set "PYTHON_CMD=C:\Program Files\Python311\python.exe" && goto :python_found
+echo [ERROR] Python installed but cannot be found. Please restart this script.
+pause
+exit /b 1
+
+:python_found
+echo Python found: %PYTHON_CMD%
+"%PYTHON_CMD%" --version
 
 :: ---- Step 2: Check Git ----
-echo [2/9] Checking for Git...
-git --version >nul 2>&1
+echo.
+echo [2/10] Checking for Git...
+where git >nul 2>&1
 if %errorlevel% neq 0 (
-    echo Git not found. Downloading and installing Git...
-    powershell -Command "Invoke-WebRequest -Uri '%GIT_INSTALLER_URL%' -OutFile '%TEMP%\git_installer.exe'"
-    "%TEMP%\git_installer.exe" /VERYSILENT /NORESTART
-    del "%TEMP%\git_installer.exe"
-    echo Git installed.
-    set "PATH=C:\Program Files\Git\bin;%PATH%"
+    echo Git not found. Downloading Git...
+    powershell -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%GIT_INSTALLER_URL%' -OutFile '%TEMP%\git_installer.exe' } catch { Write-Host 'DOWNLOAD_FAILED'; exit 1 }"
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to download Git. Check your internet connection.
+        pause
+        exit /b 1
+    )
+    echo Installing Git silently...
+    "%TEMP%\git_installer.exe" /VERYSILENT /NORESTART /SP-
+    del "%TEMP%\git_installer.exe" 2>nul
+    :: Refresh PATH
+    for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYSTEM_PATH=%%B"
+    set "PATH=%SYSTEM_PATH%;%USER_PATH%;C:\Program Files\Git\cmd"
+    where git >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [WARNING] Git installed but PATH not updated. Auto-update feature may not work until reboot.
+    ) else (
+        echo Git installed.
+    )
 ) else (
     echo Git found.
 )
 
 :: ---- Step 3: Create virtual environment ----
-echo [3/9] Creating virtual environment...
-if not exist "%VENV_DIR%" (
-    python -m venv "%VENV_DIR%"
+echo.
+echo [3/10] Creating virtual environment...
+if not exist "%VENV_DIR%\Scripts\python.exe" (
+    "%PYTHON_CMD%" -m venv "%VENV_DIR%"
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to create virtual environment.
+        pause
+        exit /b 1
+    )
     echo Virtual environment created.
 ) else (
     echo Virtual environment already exists.
 )
 
 :: ---- Step 4: Install dependencies ----
-echo [4/9] Installing dependencies...
-"%VENV_DIR%\Scripts\pip.exe" install -r "%PROJECT_DIR%requirements.txt" --quiet
+echo.
+echo [4/10] Installing dependencies...
+"%VENV_DIR%\Scripts\pip.exe" install --upgrade pip --quiet
+"%VENV_DIR%\Scripts\pip.exe" install -r "%PROJECT_DIR%\requirements.txt" --quiet
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to install dependencies.
+    pause
+    exit /b 1
+)
 echo Dependencies installed.
 
-:: ---- Step 5: Create hidden screenshots folder ----
-echo [5/9] Creating screenshots folder...
+:: ---- Step 5: pywin32 post-install ----
+echo.
+echo [5/11] Configuring pywin32...
+"%VENV_DIR%\Scripts\python.exe" "%VENV_DIR%\Scripts\pywin32_postinstall.py" -install >nul 2>&1
+if %errorlevel% neq 0 (
+    :: Try alternate location
+    "%VENV_DIR%\Scripts\python.exe" -c "import win32serviceutil" >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [WARNING] pywin32 post-install may have issues. Service might not register.
+    )
+)
+echo pywin32 configured.
+
+:: ---- Step 6: Create hidden screenshots folder ----
+echo.
+echo [6/11] Creating screenshots folder...
 if not exist "%SCREENSHOTS_DIR%" (
     mkdir "%SCREENSHOTS_DIR%"
     attrib +h +s "%SCREENSHOTS_DIR%"
@@ -79,35 +152,66 @@ if not exist "%SCREENSHOTS_DIR%" (
     echo Screenshots folder already exists.
 )
 
-:: ---- Step 6: Create data folder ----
-echo [6/9] Creating data folder...
-if not exist "%PROJECT_DIR%data" (
-    mkdir "%PROJECT_DIR%data"
+:: ---- Step 7: Create data folder ----
+echo.
+echo [7/11] Creating data folder...
+if not exist "%PROJECT_DIR%\data" (
+    mkdir "%PROJECT_DIR%\data"
     echo Data folder created.
 ) else (
     echo Data folder already exists.
 )
 
-:: ---- Step 7: Initialize database ----
-echo [7/9] Initializing database...
-"%VENV_DIR%\Scripts\python.exe" -c "import sys; sys.path.insert(0, r'%PROJECT_DIR%'); from app.database import init_db; init_db()"
+:: ---- Step 8: Initialize database ----
+echo.
+echo [8/11] Initializing database...
+"%VENV_DIR%\Scripts\python.exe" -c "import sys, os; sys.path.insert(0, os.path.abspath(r'%PROJECT_DIR%')); from app.database import init_db; init_db()"
+if %errorlevel% neq 0 (
+    echo [ERROR] Database initialization failed.
+    pause
+    exit /b 1
+)
 echo Database initialized.
 
-:: ---- Step 8: Install Windows Service ----
-echo [8/9] Installing Windows Service...
-"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%service.py" install
-sc failure ParentalControl reset= 86400 actions= restart/5000/restart/30000/restart/60000
+:: ---- Step 9: Install Windows Service ----
+echo.
+echo [9/11] Installing Windows Service...
+"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" install
+if %errorlevel% neq 0 (
+    echo [WARNING] Service installation failed. You can still run manually with run_dev.py
+)
+sc failure ParentalControl reset= 86400 actions= restart/5000/restart/30000/restart/60000 >nul 2>&1
 echo Service installed with auto-recovery.
 
-:: ---- Step 9: Start Service ----
-echo [9/9] Starting service...
-"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%service.py" start
+:: ---- Step 10: Register companion process (runs in user session for screenshots) ----
+echo.
+echo [10/11] Registering companion process for screenshots...
+schtasks /create /tn "ParentalControlCompanion" /tr "\"%VENV_DIR%\Scripts\pythonw.exe\" \"%PROJECT_DIR%\companion.pyw\"" /sc onlogon /rl highest /f >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [WARNING] Could not register companion task. Screenshots may not work from service.
+) else (
+    echo Companion registered to run at login.
+)
+:: Also start it now
+start "" "%VENV_DIR%\Scripts\pythonw.exe" "%PROJECT_DIR%\companion.pyw"
+
+:: ---- Step 11: Start Service ----
+echo.
+echo [11/11] Starting service...
+"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" start
+if %errorlevel% neq 0 (
+    echo [WARNING] Service failed to start. Try: run_dev.py for testing.
+)
 echo Service started.
 
 echo.
 echo ============================================================
 echo  Installation complete!
+echo.
 echo  Web panel: http://localhost:7847
 echo  Default password: admin (change it immediately!)
+echo.
+echo  NOTE: Schedule enforcement is DISABLED on first run.
+echo  Configure your schedule via the web panel before enabling.
 echo ============================================================
 pause

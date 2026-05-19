@@ -237,6 +237,8 @@ def settings():
         "screenshot_interval": get_setting("screenshot_interval") or "300",
         "screenshot_retention_days": get_setting("screenshot_retention_days") or "30",
         "update_check_interval": get_setting("update_check_interval") or "900",
+        "schedule_enabled": get_setting("schedule_enabled") or "0",
+        "limiter_enabled": get_setting("limiter_enabled") or "0",
     }
     return render_template("settings.html", settings=current_settings)
 
@@ -253,6 +255,9 @@ def settings_update():
         value = request.form.get(key)
         if value:
             set_setting(key, value)
+
+    set_setting("schedule_enabled", "1" if request.form.get("schedule_enabled") else "0")
+    set_setting("limiter_enabled", "1" if request.form.get("limiter_enabled") else "0")
 
     flash("Settings updated", "success")
     return redirect(url_for("main.settings"))

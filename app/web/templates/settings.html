@@ -16,8 +16,24 @@
 </div>
 
 <div class="card">
-    <h3>App Settings</h3>
+    <h3>Enforcement Controls</h3>
     <form method="POST" action="{{ url_for('main.settings') }}">
+        <div class="form-group toggle-group">
+            <label class="toggle-label">
+                <input type="checkbox" name="schedule_enabled" value="1"
+                       {{ 'checked' if settings.schedule_enabled == '1' else '' }}>
+                <span>Schedule Enforcement (shutdown outside allowed times)</span>
+            </label>
+        </div>
+        <div class="form-group toggle-group">
+            <label class="toggle-label">
+                <input type="checkbox" name="limiter_enabled" value="1"
+                       {{ 'checked' if settings.limiter_enabled == '1' else '' }}>
+                <span>App Time Limits (kill/warn when exceeded)</span>
+            </label>
+        </div>
+
+        <h3>App Settings</h3>
         <div class="form-group">
             <label for="screenshot_interval">Screenshot Interval (seconds)</label>
             <input type="number" id="screenshot_interval" name="screenshot_interval"
