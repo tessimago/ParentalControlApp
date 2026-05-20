@@ -216,11 +216,13 @@ echo [10/11] Registering companion process...
 set "STARTUP_DIR=C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
 set "SHORTCUT_PATH=%STARTUP_DIR%\ParentalControlCompanion.vbs"
 :: Create a VBS launcher (silent, no window flash)
-echo CreateObject("WScript.Shell").Run """%VENV_DIR%\Scripts\pythonw.exe"" ""%PROJECT_DIR%\companion.pyw""", 0, False > "%SHORTCUT_PATH%"
-if !errorlevel! neq 0 (
-    echo [WARNING] Could not add companion to Startup folder.
-) else (
+:: VBS needs: CreateObject("WScript.Shell").Run """path\pythonw.exe"" ""path\companion.pyw""", 0, False
+> "%SHORTCUT_PATH%" echo CreateObject("WScript.Shell").Run """%VENV_DIR%\Scripts\pythonw.exe"" ""%PROJECT_DIR%\companion.pyw""", 0, False
+:: Verify it was created
+if exist "%SHORTCUT_PATH%" (
     echo Companion added to Startup folder (all users).
+) else (
+    echo [WARNING] Could not add companion to Startup folder.
 )
 :: Remove old schtasks entry if it exists
 schtasks /delete /tn "ParentalControlCompanion" /f >nul 2>&1
