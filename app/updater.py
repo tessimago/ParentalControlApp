@@ -54,25 +54,20 @@ class AutoUpdater:
             timeout=60
         )
 
-        pip_path = os.path.join(VENV_DIR, "Scripts", "pip.exe")
+        python_path = os.path.join(VENV_DIR, "Scripts", "python.exe")
         requirements_path = os.path.join(BASE_DIR, "requirements.txt")
         subprocess.run(
-            [pip_path, "install", "-r", requirements_path, "--quiet"],
+            [python_path, "-m", "pip", "install", "-r", requirements_path, "--quiet"],
             capture_output=True,
             timeout=120
         )
 
-        self._restart_service()
+        self._restart()
 
-    def _restart_service(self):
-        subprocess.run(
-            ["sc", "stop", SERVICE_NAME],
-            capture_output=True,
-            timeout=30
-        )
-        time.sleep(3)
-        subprocess.run(
-            ["sc", "start", SERVICE_NAME],
-            capture_output=True,
-            timeout=30
-        )
+    def _restart(self):
+        """Restart by launching a new instance and exiting this one."""
+        pythonw = os.path.join(VENV_DIR, "Scripts", "pythonw.exe")
+        run_script = os.path.join(BASE_DIR, "run_service.pyw")
+        subprocess.Popen([pythonw, run_script])
+        time.sleep(1)
+        os._exit(0)

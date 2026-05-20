@@ -579,3 +579,35 @@ def api_telegram_test():
         return jsonify({"ok": True, "sent": sent})
     else:
         return jsonify({"ok": False, "error": "; ".join(errors)})
+
+
+# --- Update ---
+
+@bp.route("/api/update", methods=["POST"])
+@login_required
+def api_update():
+    import subprocess
+    from app.config import BASE_DIR
+
+    try:
+        result = subprocess.run(
+            ["git", "fetch"],
+            cwd=BASE_DIR, capture_output=True, timeout=30
+        )
+        if result.returncode != 0:
+            return jsonify({"ok": False, "error": "git fetch failed", "status": "no_git"})
+
+        result = subprocess.run(
+            ["git", "status", "-uno"],
+            cwd=BASE_DIR, capture_output=True, text=True, timeout=10
+        )
+        if "behind" not in result.stdout.lower():
+            return jsonify({"ok": True, "status": "up_to_date"})
+
+        # There's an update available — apply it
+        from app.updater import AutoUpdater
+        updater = AutoUpdater(None)
+        updater._apply_update()
+        return jsonify({"ok": True, "status": "updated"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})

@@ -99,6 +99,13 @@
         <button type="submit" class="btn btn-primary">{{ t.save_settings }}</button>
     </form>
 </div>
+
+<div class="card">
+    <h3>{{ t.update_title }}</h3>
+    <p class="note">{{ t.update_desc }}</p>
+    <button type="button" class="btn btn-primary" id="update-btn" onclick="checkUpdate()">{{ t.update_btn }}</button>
+    <p class="note" id="update-note"></p>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -142,6 +149,30 @@ function testTelegram() {
         })
         .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; })
         .finally(() => { btn.disabled = false; btn.textContent = '{{ t.test_btn }}'; });
+}
+
+function checkUpdate() {
+    const btn = document.getElementById('update-btn');
+    const note = document.getElementById('update-note');
+    btn.disabled = true;
+    btn.textContent = '...';
+    note.textContent = '';
+    fetch("{{ url_for('main.api_update') }}", { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok && data.status === 'up_to_date') {
+                note.textContent = '{{ t.update_up_to_date }}';
+                note.style.color = '#66bb6a';
+            } else if (data.ok && data.status === 'updated') {
+                note.textContent = '{{ t.update_applied }}';
+                note.style.color = '#66bb6a';
+            } else {
+                note.textContent = data.error || 'Update failed';
+                note.style.color = '#ef5350';
+            }
+        })
+        .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; })
+        .finally(() => { btn.disabled = false; btn.textContent = '{{ t.update_btn }}'; });
 }
 </script>
 {% endblock %}
