@@ -28,19 +28,21 @@ def _kill_existing():
     """Kill any other instances of the service to avoid duplicates."""
     import psutil
     my_pid = os.getpid()
-    run_script = os.path.join(_DIR, "run_service.pyw")
     for proc in psutil.process_iter(["pid", "cmdline"]):
         try:
             if proc.info["pid"] == my_pid:
                 continue
             cmdline = proc.info.get("cmdline") or []
             if any("run_service.pyw" in arg for arg in cmdline):
-                proc.kill()
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                proc.terminate()
+                proc.wait(timeout=5)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
             continue
 
 
 def main():
+    # Small delay to let the old process exit cleanly during updates
+    time.sleep(3)
     _kill_existing()
 
     from app.config import logger, DEFAULT_PORT

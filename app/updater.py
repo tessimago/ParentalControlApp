@@ -85,9 +85,15 @@ class AutoUpdater:
         self._restart()
 
     def _restart(self):
-        """Restart by launching a new instance and exiting this one."""
+        """Restart by launching a fully detached new instance and exiting."""
         pythonw = os.path.join(VENV_DIR, "Scripts", "pythonw.exe")
         run_script = os.path.join(BASE_DIR, "run_service.pyw")
-        subprocess.Popen([pythonw, run_script])
-        time.sleep(1)
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        subprocess.Popen(
+            [pythonw, run_script],
+            creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+            close_fds=True
+        )
+        time.sleep(2)
         os._exit(0)
