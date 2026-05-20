@@ -21,7 +21,7 @@ from app.database import (
 from app.screenshots import (
     capture_frame, get_screenshot_dates, get_screenshots_for_date, get_screenshot_path
 )
-from app.config import SCREENSHOTS_DIR, LOG_DIR, logger
+from app.config import SCREENSHOTS_DIR, LOG_DIR, BASE_DIR, VENV_DIR, logger
 
 bp = Blueprint("main", __name__)
 
@@ -443,7 +443,6 @@ def delete_screenshot(date, filename):
 @login_required
 def settings():
     import subprocess
-    from app.config import BASE_DIR
 
     current_settings = {
         "port": get_setting("port") or "7847",
@@ -674,7 +673,6 @@ def api_remove_control():
 @login_required
 def api_update():
     import subprocess
-    from app.config import BASE_DIR
 
     try:
         result = subprocess.run(
@@ -701,9 +699,19 @@ def api_update():
             return jsonify({"ok": True, "status": "up_to_date"})
 
         logger.info(f"Manual update: applying (local={local.stdout.strip()[:8]} remote={remote.stdout.strip()[:8]})")
-        from app.updater import AutoUpdater
-        updater = AutoUpdater(None)
-        updater._apply_update()
+
+        subprocess.run(["git", "reset", "--hard", "origin/main"], cwd=BASE_DIR, capture_output=True, timeout=60)
+        python_path = os.path.join(VENV_DIR, "Scripts", "python.exe")
+        requirements_path = os.path.join(BASE_DIR, "requirements.txt")
+        subprocess.run([python_path, "-m", "pip", "install", "-r", requirements_path, "--quiet"], capture_output=True, timeout=120)
+
+        def _deferred_restart():
+            time.sleep(2)
+            from app.updater import AutoUpdater
+            updater = AutoUpdater(None)
+            updater._restart()
+
+        threading.Thread(target=_deferred_restart, daemon=True).start()
         return jsonify({"ok": True, "status": "updated"})
     except Exception as e:
         logger.error(f"Manual update failed: {e}")
