@@ -2,7 +2,7 @@ import time
 import threading
 from datetime import datetime
 
-from app.config import SCHEDULE_CHECK_INTERVAL
+from app.config import SCHEDULE_CHECK_INTERVAL, logger
 from app.database import get_schedule_for_day, get_override_for_date, get_setting
 from app.warning import send_warning, trigger_shutdown
 
@@ -14,11 +14,12 @@ class ScheduleEnforcer:
         self.shutdown_triggered = False
 
     def run(self):
+        logger.info("Schedule enforcer started")
         while not self.stop_flag.is_set():
             try:
                 self._tick()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Scheduler tick error: {e}")
             self.stop_flag.wait(SCHEDULE_CHECK_INTERVAL)
 
     def _tick(self):
@@ -47,6 +48,7 @@ class ScheduleEnforcer:
             return
 
         if not self.warning_sent:
+            logger.info(f"Outside schedule ({start_time}-{end_time}), current time {current_time} — sending shutdown warning")
             send_warning(
                 "Your computer time is over! Shutting down in 30 seconds...",
                 timeout=30
@@ -58,6 +60,7 @@ class ScheduleEnforcer:
                 return
 
             if not self.shutdown_triggered:
+                logger.info("Triggering system shutdown")
                 trigger_shutdown(delay=0)
                 self.shutdown_triggered = True
 

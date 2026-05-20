@@ -3,12 +3,13 @@ import ctypes
 import os
 import sys
 
-from app.config import BASE_DIR, VENV_DIR
+from app.config import BASE_DIR, VENV_DIR, logger
 from app.i18n import t
 
 
 def send_warning(message, timeout=30):
     """Show a fullscreen popup for system warnings (schedule, limits)."""
+    logger.info(f"Warning popup: \"{message}\" (timeout={timeout}s)")
     _launch_popup(message, timeout, header="PARENTAL CONTROL")
 
 
@@ -77,6 +78,7 @@ def _fallback_wts(message, timeout):
 
 
 def trigger_shutdown(delay=0):
+    logger.info(f"Triggering system shutdown (delay={delay}s)")
     os.system(f"shutdown /s /t {delay} /f /c \"Parental Control: Time is up!\"")
 
 

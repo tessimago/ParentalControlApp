@@ -20,7 +20,7 @@ from app.database import (
 from app.screenshots import (
     capture_frame, get_screenshot_dates, get_screenshots_for_date, get_screenshot_path
 )
-from app.config import SCREENSHOTS_DIR, LOG_DIR
+from app.config import SCREENSHOTS_DIR, LOG_DIR, logger
 
 bp = Blueprint("main", __name__)
 
@@ -34,7 +34,9 @@ def login():
         password = request.form.get("password", "")
         if check_password(password):
             session["authenticated"] = True
+            logger.info(f"Parent logged in from {request.remote_addr}")
             return redirect(url_for("main.dashboard"))
+        logger.warning(f"Failed login attempt from {request.remote_addr}")
         flash(t("invalid_password"), "error")
     return render_template("login.html")
 
@@ -150,6 +152,7 @@ def send_message():
     if message:
         parent_name = get_setting("parent_name") or "Parent"
         send_popup(message, timeout=timeout, parent_name=parent_name)
+        logger.info(f"Message sent to child: \"{message}\"")
         flash(t("message_sent"), "success")
     return redirect(url_for("main.dashboard"))
 
@@ -171,6 +174,7 @@ def kill_process():
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     if killed:
+        logger.info(f"Parent killed {killed} instance(s) of {process_name}")
         flash(t("killed_instances", count=killed, name=process_name), "success")
     else:
         flash(t("not_running_error", name=process_name), "error")
@@ -222,6 +226,7 @@ def tracked_update():
         process_name = request.form.get("process_name")
         if process_name:
             remove_tracked_app(process_name)
+            logger.info(f"Removed {process_name} from watchlist")
             flash(t("removed_watchlist", name=process_name), "success")
     else:
         process_name = request.form.get("process_name", "").strip().lower()
@@ -230,6 +235,7 @@ def tracked_update():
             if not display_name:
                 display_name = process_name.replace(".exe", "").title()
             add_tracked_app(process_name, display_name)
+            logger.info(f"Added {display_name} ({process_name}) to watchlist")
             flash(t("added_watchlist", name=display_name), "success")
 
     return redirect(url_for("main.tracked"))
@@ -256,6 +262,7 @@ def schedule_update():
         end = request.form.get(f"end_{day}")
         if start and end:
             update_schedule(day, start, end)
+    logger.info("Weekly schedule updated")
     flash(t("schedule_updated"), "success")
     return redirect(url_for("main.schedule"))
 
@@ -269,6 +276,7 @@ def schedule_extend():
     end = request.form.get("end_time")
     if end:
         set_override(today, start, end)
+        logger.info(f"Today's schedule extended until {end}")
         flash(t("extended_until", time=end), "success")
     return redirect(url_for("main.schedule"))
 
@@ -292,6 +300,7 @@ def limits_update():
         process_name = request.form.get("delete_process")
         if process_name:
             delete_app_limit(process_name)
+            logger.info(f"Limit removed for {process_name}")
             flash(t("limit_removed", name=process_name), "success")
     else:
         process_name = request.form.get("process_name", "").strip().lower()
@@ -299,6 +308,7 @@ def limits_update():
         action = request.form.get("action", "warn")
         if process_name and minutes:
             set_app_limit(process_name, int(minutes), action)
+            logger.info(f"Limit set for {process_name}: {minutes}min, action={action}")
             flash(t("limit_set", name=process_name), "success")
 
     return redirect(url_for("main.limits"))
@@ -410,6 +420,7 @@ def delete_screenshot_day(date):
     day_folder = os.path.join(SCREENSHOTS_DIR, date)
     if os.path.exists(day_folder):
         shutil.rmtree(day_folder)
+        logger.info(f"Deleted all screenshots for {date}")
         flash(t("deleted_screenshots", date=date), "success")
     return redirect(url_for("main.screenshots"))
 
@@ -454,6 +465,7 @@ def settings_update():
     new_password = request.form.get("new_password")
     if new_password:
         change_password(new_password)
+        logger.info("Password changed")
         flash(t("password_changed"), "success")
 
     for key in ["screenshot_interval", "screenshot_retention_days", "update_check_interval"]:
@@ -486,6 +498,7 @@ def settings_update():
         else:
             flash(t("telegram_send_message"), "error")
 
+    logger.info("Settings updated")
     flash(t("settings_updated"), "success")
     return redirect(url_for("main.settings"))
 
@@ -616,9 +629,10 @@ def api_update():
     try:
         result = subprocess.run(
             ["git", "fetch"],
-            cwd=BASE_DIR, capture_output=True, timeout=30
+            cwd=BASE_DIR, capture_output=True, text=True, timeout=30
         )
         if result.returncode != 0:
+            logger.warning(f"Manual update: git fetch failed — {result.stderr.strip()}")
             return jsonify({"ok": False, "error": "git fetch failed", "status": "no_git"})
 
         result = subprocess.run(
@@ -626,12 +640,14 @@ def api_update():
             cwd=BASE_DIR, capture_output=True, text=True, timeout=10
         )
         if "behind" not in result.stdout.lower():
+            logger.info("Manual update check: already up to date")
             return jsonify({"ok": True, "status": "up_to_date"})
 
-        # There's an update available — apply it
+        logger.info("Manual update: applying update...")
         from app.updater import AutoUpdater
         updater = AutoUpdater(None)
         updater._apply_update()
         return jsonify({"ok": True, "status": "updated"})
     except Exception as e:
+        logger.error(f"Manual update failed: {e}")
         return jsonify({"ok": False, "error": str(e)})

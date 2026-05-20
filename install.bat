@@ -102,6 +102,29 @@ if !errorlevel! neq 0 (
 )
 :git_done
 
+:: ---- Step 2b: Initialize git repo if missing (ZIP downloads don't include .git) ----
+if not exist "%PROJECT_DIR%\.git" (
+    echo Initializing git repository for auto-updates...
+    where git >nul 2>&1
+    if !errorlevel! equ 0 (
+        pushd "%PROJECT_DIR%"
+        git init >nul 2>&1
+        git remote add origin https://github.com/tessimago/ParentalControlApp.git >nul 2>&1
+        git fetch origin main >nul 2>&1
+        if !errorlevel! equ 0 (
+            git reset --mixed origin/main >nul 2>&1
+            echo Git repo initialized. Auto-update will work.
+        ) else (
+            echo [WARNING] Could not fetch from GitHub. Auto-update may not work until network is available.
+        )
+        popd
+    ) else (
+        echo [WARNING] Git not available. Auto-update feature will not work.
+    )
+) else (
+    echo Git repository already initialized.
+)
+
 :: ---- Step 3: Create virtual environment ----
 echo.
 echo [3/10] Creating virtual environment...

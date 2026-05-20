@@ -35,9 +35,11 @@ class AutoUpdater:
             ["git", "fetch"],
             cwd=BASE_DIR,
             capture_output=True,
+            text=True,
             timeout=30
         )
         if result.returncode != 0:
+            logger.warning(f"git fetch failed: {result.stderr.strip()}")
             return False
 
         result = subprocess.run(

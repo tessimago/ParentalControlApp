@@ -152,5 +152,6 @@ class CloudflareTunnel:
                 }).encode()
                 req = urllib.request.Request(api_url, data=data)
                 urllib.request.urlopen(req, timeout=10)
-            except Exception:
-                pass
+                logger.info(f"Telegram notification sent to chat {chat_id}")
+            except Exception as e:
+                logger.error(f"Telegram send failed for chat {chat_id}: {e}")

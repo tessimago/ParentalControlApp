@@ -4,7 +4,7 @@ import shutil
 import threading
 from datetime import datetime, timedelta
 
-from app.config import SCREENSHOTS_DIR, SCREENSHOT_INTERVAL, SCREENSHOT_RETENTION_DAYS, DATA_DIR
+from app.config import SCREENSHOTS_DIR, SCREENSHOT_INTERVAL, SCREENSHOT_RETENTION_DAYS, DATA_DIR, logger
 from app.database import get_setting
 
 LIVE_FRAME_PATH = os.path.join(DATA_DIR, "live_frame.jpg")
@@ -36,13 +36,14 @@ class ScreenshotCapture:
             return True
 
     def run(self):
+        logger.info(f"Screenshot capture started (session_0={self.is_session_0})")
         while not self.stop_flag.is_set():
             try:
                 if not self.is_session_0:
                     self._capture_and_save()
                 self._cleanup_old()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Screenshot error: {e}")
             interval = int(get_setting("screenshot_interval") or SCREENSHOT_INTERVAL)
             self.stop_flag.wait(interval)
 
@@ -62,6 +63,8 @@ class ScreenshotCapture:
             img = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
             img.save(filepath, "JPEG", quality=70)
 
+        logger.info(f"Screenshot saved: {now.strftime('%Y-%m-%d')}/{filename}")
+
     def _cleanup_old(self):
         retention = int(get_setting("screenshot_retention_days") or SCREENSHOT_RETENTION_DAYS)
         cutoff = datetime.now() - timedelta(days=retention)
@@ -77,6 +80,7 @@ class ScreenshotCapture:
                 folder_date = datetime.strptime(folder_name, "%Y-%m-%d")
                 if folder_date < cutoff:
                     shutil.rmtree(folder_path)
+                    logger.info(f"Cleaned up old screenshots: {folder_name}")
             except ValueError:
                 continue
 

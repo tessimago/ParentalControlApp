@@ -3,7 +3,7 @@ import threading
 
 import psutil
 
-from app.config import MONITOR_INTERVAL, IGNORED_PROCESSES
+from app.config import MONITOR_INTERVAL, IGNORED_PROCESSES, logger
 from app.database import log_usage
 
 
@@ -16,11 +16,12 @@ class MonitorEngine:
         return dict(self.active_processes)
 
     def run(self):
+        logger.info("Monitor engine started")
         while not self.stop_flag.is_set():
             try:
                 self._tick()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Monitor tick error: {e}")
             self.stop_flag.wait(MONITOR_INTERVAL)
 
     def _tick(self):
