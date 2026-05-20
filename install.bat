@@ -32,8 +32,8 @@ set "GIT_INSTALLER_URL=https://github.com/git-for-windows/git/releases/download/
 echo [1/10] Checking for Python...
 set "PYTHON_CMD="
 
-:: Try common locations
-where python >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
+:: Try common locations (verify with --version to avoid Windows Store alias)
+where python >nul 2>&1 && python --version >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
 if exist "C:\Program Files\Python311\python.exe" set "PYTHON_CMD=C:\Program Files\Python311\python.exe" && goto :python_found
 if exist "C:\Program Files\Python312\python.exe" set "PYTHON_CMD=C:\Program Files\Python312\python.exe" && goto :python_found
 if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" set "PYTHON_CMD=%LOCALAPPDATA%\Programs\Python\Python311\python.exe" && goto :python_found
@@ -63,7 +63,7 @@ for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set
 set "PATH=%PATH%;%SYSTEM_PATH%;%USER_PATH%"
 
 :: Try to find python again
-where python >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
+where python >nul 2>&1 && python --version >nul 2>&1 && set "PYTHON_CMD=python" && goto :python_found
 if exist "C:\Program Files\Python311\python.exe" set "PYTHON_CMD=C:\Program Files\Python311\python.exe" && goto :python_found
 echo [ERROR] Python installed but cannot be found. Please restart this script.
 pause
