@@ -65,7 +65,7 @@ def write_heartbeat():
 
 
 def check_commands():
-    """Check if the service has sent any commands (e.g., take screenshot now)."""
+    """Check if the service has sent any commands (e.g., popup, screenshot)."""
     if not os.path.exists(COMMAND_FILE):
         return None
     try:
@@ -75,6 +75,31 @@ def check_commands():
         return cmd
     except (json.JSONDecodeError, OSError):
         return None
+
+
+def handle_command(cmd):
+    """Execute a command from the main service."""
+    if not cmd:
+        return
+    action = cmd.get("action")
+    if action == "popup":
+        import subprocess
+        popup_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app", "popup.py")
+        python_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".venv", "Scripts", "pythonw.exe")
+        if not os.path.exists(python_exe):
+            python_exe = sys.executable
+        try:
+            subprocess.Popen([
+                python_exe, popup_script,
+                cmd.get("message", ""),
+                str(cmd.get("timeout", 30)),
+                cmd.get("header", "PARENTAL CONTROL"),
+                cmd.get("msg_from", "MESSAGE FROM"),
+                cmd.get("closes_in", "Closes in {seconds}s"),
+                cmd.get("click_ok", "Click OK"),
+            ])
+        except Exception:
+            pass
 
 
 def screenshot_loop():
@@ -93,6 +118,11 @@ def screenshot_loop():
         # Always update live frame for streaming
         capture_live_frame()
         write_heartbeat()
+
+        # Check for commands from the main service
+        cmd = check_commands()
+        if cmd:
+            handle_command(cmd)
 
         time.sleep(1)
 

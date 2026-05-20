@@ -31,6 +31,12 @@ class AutoUpdater:
                 logger.error(f"Update check failed: {e}")
 
     def _check_for_updates(self):
+        # Ensure SYSTEM can access user-owned repo
+        subprocess.run(
+            ["git", "config", "--global", "--add", "safe.directory", BASE_DIR.replace("\\", "/")],
+            capture_output=True, timeout=5
+        )
+
         result = subprocess.run(
             ["git", "fetch", "origin", "main"],
             cwd=BASE_DIR,

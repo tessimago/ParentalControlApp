@@ -1,10 +1,14 @@
 import subprocess
 import ctypes
+import json
 import os
 import sys
+import time
 
-from app.config import BASE_DIR, VENV_DIR, logger
+from app.config import BASE_DIR, VENV_DIR, DATA_DIR, logger
 from app.i18n import t
+
+COMMAND_FILE = os.path.join(DATA_DIR, "companion_cmd.json")
 
 
 def send_warning(message, timeout=30):
@@ -19,15 +23,20 @@ def send_popup(message, timeout=60, parent_name="Parent"):
 
 
 def _launch_popup(message, timeout, header="PARENTAL CONTROL"):
+    msg_from = t("message_from")
+    closes_in = t("closes_in", seconds="{seconds}")
+    click_ok = t("click_ok")
+
+    # Try routing through the companion process (works from Session 0)
+    if _send_to_companion(message, timeout, header, msg_from, closes_in, click_ok):
+        return
+
+    # Direct launch (works if we're in the user session)
     popup_script = os.path.join(BASE_DIR, "app", "popup.py")
     python_exe = os.path.join(VENV_DIR, "Scripts", "pythonw.exe")
 
     if not os.path.exists(python_exe):
         python_exe = sys.executable
-
-    msg_from = t("message_from")
-    closes_in = t("closes_in", seconds="{seconds}")
-    click_ok = t("click_ok")
 
     try:
         subprocess.Popen(
@@ -36,6 +45,26 @@ def _launch_popup(message, timeout, header="PARENTAL CONTROL"):
         )
     except Exception:
         _fallback_msg(message, timeout)
+
+
+def _send_to_companion(message, timeout, header, msg_from, closes_in, click_ok):
+    """Write a command file for the companion to pick up and display."""
+    try:
+        cmd = {
+            "action": "popup",
+            "message": message,
+            "timeout": timeout,
+            "header": header,
+            "msg_from": msg_from,
+            "closes_in": closes_in,
+            "click_ok": click_ok,
+            "timestamp": time.time(),
+        }
+        with open(COMMAND_FILE, "w") as f:
+            json.dump(cmd, f)
+        return True
+    except Exception:
+        return False
 
 
 def _fallback_msg(message, timeout):

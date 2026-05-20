@@ -675,6 +675,12 @@ def api_update():
     import subprocess
 
     try:
+        # Ensure SYSTEM can access user-owned repo
+        subprocess.run(
+            ["git", "config", "--global", "--add", "safe.directory", BASE_DIR.replace("\\", "/")],
+            capture_output=True, timeout=5
+        )
+
         result = subprocess.run(
             ["git", "fetch", "origin", "main"],
             cwd=BASE_DIR, capture_output=True, text=True, timeout=30

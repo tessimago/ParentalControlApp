@@ -125,6 +125,12 @@ if not exist "%PROJECT_DIR%\.git" (
     echo Git repository already initialized.
 )
 
+:: Mark directory as safe for SYSTEM user (service runs as SYSTEM, repo owned by user)
+where git >nul 2>&1
+if !errorlevel! equ 0 (
+    git config --global --add safe.directory "%PROJECT_DIR:\=/%" >nul 2>&1
+)
+
 :: ---- Step 3: Create virtual environment ----
 echo.
 echo [3/10] Creating virtual environment...
