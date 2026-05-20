@@ -59,9 +59,13 @@ class CloudflareTunnel:
     def _wait_for_internet(self):
         """Wait until we can reach the internet before starting the tunnel."""
         import urllib.request
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         while not self.stop_flag.is_set():
             try:
-                urllib.request.urlopen("https://cloudflare.com/cdn-cgi/trace", timeout=5)
+                urllib.request.urlopen("https://cloudflare.com/cdn-cgi/trace", timeout=5, context=ctx)
                 return
             except Exception:
                 self.stop_flag.wait(10)
@@ -69,10 +73,18 @@ class CloudflareTunnel:
     def _download_cloudflared(self):
         try:
             import urllib.request
+            import ssl
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
             os.makedirs(DATA_DIR, exist_ok=True)
-            urllib.request.urlretrieve(CLOUDFLARED_URL, CLOUDFLARED_PATH)
+            req = urllib.request.Request(CLOUDFLARED_URL)
+            response = urllib.request.urlopen(req, timeout=60, context=ctx)
+            with open(CLOUDFLARED_PATH, "wb") as f:
+                f.write(response.read())
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Cloudflared download failed: {e}")
             return False
 
     def _start_quick_tunnel(self, port):
@@ -94,12 +106,17 @@ class CloudflareTunnel:
                 line = self.process.stderr.readline().decode("utf-8", errors="ignore")
                 if not line:
                     if self.process.poll() is not None:
+                        logger.error(f"cloudflared exited early with code {self.process.returncode}")
                         break
                     continue
+                logger.debug(f"cloudflared: {line.strip()}")
                 match = re.search(r"(https://[a-zA-Z0-9\-]+\.trycloudflare\.com)", line)
                 if match:
                     url = match.group(1)
                     break
+
+            if not url and self.process.poll() is None:
+                logger.error("Tunnel timeout: no URL found within 30s")
 
             # Keep reading stderr in background so pipe doesn't fill
             if url:
@@ -107,7 +124,8 @@ class CloudflareTunnel:
                 threading.Thread(target=self._drain_pipe, args=(self.process.stdout,), daemon=True).start()
 
             return url
-        except Exception:
+        except Exception as e:
+            logger.error(f"Tunnel start exception: {e}")
             return None
 
     def _drain_pipe(self, pipe):
