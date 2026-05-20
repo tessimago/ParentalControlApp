@@ -211,13 +211,19 @@ if !errorlevel! neq 0 (
 
 :: ---- Step 10: Register companion process (runs in user session for screenshots) ----
 echo.
-echo [10/11] Registering companion process for screenshots...
-schtasks /create /tn "ParentalControlCompanion" /tr "\"%VENV_DIR%\Scripts\pythonw.exe\" \"%PROJECT_DIR%\companion.pyw\"" /sc onlogon /rl highest /f >nul 2>&1
+echo [10/11] Registering companion process...
+:: Use Startup folder (most reliable for user-session processes)
+set "STARTUP_DIR=C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
+set "SHORTCUT_PATH=%STARTUP_DIR%\ParentalControlCompanion.vbs"
+:: Create a VBS launcher (silent, no window flash)
+echo CreateObject("WScript.Shell").Run """%VENV_DIR%\Scripts\pythonw.exe"" ""%PROJECT_DIR%\companion.pyw""", 0, False > "%SHORTCUT_PATH%"
 if !errorlevel! neq 0 (
-    echo [WARNING] Could not register companion task. Screenshots may not work from service.
+    echo [WARNING] Could not add companion to Startup folder.
 ) else (
-    echo Companion registered to run at login.
+    echo Companion added to Startup folder (all users).
 )
+:: Remove old schtasks entry if it exists
+schtasks /delete /tn "ParentalControlCompanion" /f >nul 2>&1
 :: Also start it now
 start "" "%VENV_DIR%\Scripts\pythonw.exe" "%PROJECT_DIR%\companion.pyw"
 

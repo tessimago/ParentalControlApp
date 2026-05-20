@@ -627,15 +627,18 @@ def api_remove_control():
     except Exception as e:
         errors.append(f"Task removal: {e}")
 
-    # 2. Delete the companion scheduled task
+    # 2. Remove companion from Startup folder + old schtask
     try:
+        startup_vbs = r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\ParentalControlCompanion.vbs"
+        if os.path.exists(startup_vbs):
+            os.remove(startup_vbs)
         subprocess.run(
             ["schtasks", "/delete", "/tn", "ParentalControlCompanion", "/f"],
             capture_output=True, timeout=10
         )
-        logger.info("Removed ParentalControlCompanion scheduled task")
+        logger.info("Removed companion startup entry")
     except Exception as e:
-        errors.append(f"Companion task removal: {e}")
+        errors.append(f"Companion removal: {e}")
 
     # 3. Kill companion and tunnel processes
     try:
