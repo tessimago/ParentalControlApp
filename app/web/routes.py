@@ -498,12 +498,15 @@ def _fetch_telegram_chat_id(bot_token):
         req = urllib.request.Request(url)
         response = urllib.request.urlopen(req, timeout=10)
         data = json.loads(response.read().decode())
+        chat_ids = set()
         if data.get("ok") and data.get("result"):
             for update in data["result"]:
                 msg = update.get("message") or update.get("my_chat_member", {})
                 chat = msg.get("chat") if isinstance(msg, dict) else None
                 if chat and chat.get("id"):
-                    return str(chat["id"])
+                    chat_ids.add(str(chat["id"]))
+        if chat_ids:
+            return ", ".join(sorted(chat_ids))
     except Exception:
         pass
     return None

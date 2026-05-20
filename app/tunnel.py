@@ -124,24 +124,28 @@ class CloudflareTunnel:
 
     def _notify_telegram(self, url):
         bot_token = get_setting("telegram_bot_token")
-        chat_id = get_setting("telegram_chat_id")
+        chat_ids_raw = get_setting("telegram_chat_id")
 
-        if not bot_token or not chat_id:
+        if not bot_token or not chat_ids_raw:
             return
 
-        try:
-            import urllib.request
-            import urllib.parse
+        import urllib.request
+        import urllib.parse
 
-            message = f"🖥️ Parental Control is online!\n\n🔗 {url}\n\nAccess from anywhere with this link."
-            api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-            data = urllib.parse.urlencode({
-                "chat_id": chat_id,
-                "text": message,
-                "parse_mode": "HTML"
-            }).encode()
+        message = f"🖥️ Parental Control is online!\n\n🔗 {url}\n\nAccess from anywhere with this link."
+        api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
 
-            req = urllib.request.Request(api_url, data=data)
-            urllib.request.urlopen(req, timeout=10)
-        except Exception:
-            pass
+        for chat_id in chat_ids_raw.split(","):
+            chat_id = chat_id.strip()
+            if not chat_id:
+                continue
+            try:
+                data = urllib.parse.urlencode({
+                    "chat_id": chat_id,
+                    "text": message,
+                    "parse_mode": "HTML"
+                }).encode()
+                req = urllib.request.Request(api_url, data=data)
+                urllib.request.urlopen(req, timeout=10)
+            except Exception:
+                pass
