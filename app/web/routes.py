@@ -691,22 +691,29 @@ def api_update():
 
     try:
         result = subprocess.run(
-            ["git", "fetch"],
+            ["git", "fetch", "origin", "main"],
             cwd=BASE_DIR, capture_output=True, text=True, timeout=30
         )
         if result.returncode != 0:
             logger.warning(f"Manual update: git fetch failed — {result.stderr.strip()}")
             return jsonify({"ok": False, "error": "git fetch failed", "status": "no_git"})
 
-        result = subprocess.run(
-            ["git", "status", "-uno"],
+        local = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
             cwd=BASE_DIR, capture_output=True, text=True, timeout=10
         )
-        if "behind" not in result.stdout.lower():
+        remote = subprocess.run(
+            ["git", "rev-parse", "origin/main"],
+            cwd=BASE_DIR, capture_output=True, text=True, timeout=10
+        )
+        if local.returncode != 0 or remote.returncode != 0:
+            return jsonify({"ok": False, "error": "git rev-parse failed", "status": "no_git"})
+
+        if local.stdout.strip() == remote.stdout.strip():
             logger.info("Manual update check: already up to date")
             return jsonify({"ok": True, "status": "up_to_date"})
 
-        logger.info("Manual update: applying update...")
+        logger.info(f"Manual update: applying (local={local.stdout.strip()[:8]} remote={remote.stdout.strip()[:8]})")
         from app.updater import AutoUpdater
         updater = AutoUpdater(None)
         updater._apply_update()

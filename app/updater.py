@@ -32,7 +32,7 @@ class AutoUpdater:
 
     def _check_for_updates(self):
         result = subprocess.run(
-            ["git", "fetch"],
+            ["git", "fetch", "origin", "main"],
             cwd=BASE_DIR,
             capture_output=True,
             text=True,
@@ -42,18 +42,27 @@ class AutoUpdater:
             logger.warning(f"git fetch failed: {result.stderr.strip()}")
             return False
 
-        result = subprocess.run(
-            ["git", "status", "-uno"],
-            cwd=BASE_DIR,
-            capture_output=True,
-            text=True,
-            timeout=10
+        local = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=BASE_DIR, capture_output=True, text=True, timeout=10
         )
-        return "behind" in result.stdout.lower()
+        remote = subprocess.run(
+            ["git", "rev-parse", "origin/main"],
+            cwd=BASE_DIR, capture_output=True, text=True, timeout=10
+        )
+        if local.returncode != 0 or remote.returncode != 0:
+            return False
+
+        local_hash = local.stdout.strip()
+        remote_hash = remote.stdout.strip()
+        if local_hash != remote_hash:
+            logger.info(f"Update available: local={local_hash[:8]} remote={remote_hash[:8]}")
+            return True
+        return False
 
     def _apply_update(self):
         subprocess.run(
-            ["git", "pull", "origin", "main"],
+            ["git", "reset", "--hard", "origin/main"],
             cwd=BASE_DIR,
             capture_output=True,
             timeout=60
