@@ -215,9 +215,8 @@ echo [10/11] Registering companion process...
 :: Use Startup folder (most reliable for user-session processes)
 set "STARTUP_DIR=C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup"
 set "SHORTCUT_PATH=%STARTUP_DIR%\ParentalControlCompanion.vbs"
-:: Create a VBS launcher (silent, no window flash)
-:: VBS needs: CreateObject("WScript.Shell").Run """path\pythonw.exe"" ""path\companion.pyw""", 0, False
-> "%SHORTCUT_PATH%" echo CreateObject("WScript.Shell").Run """%VENV_DIR%\Scripts\pythonw.exe"" ""%PROJECT_DIR%\companion.pyw""", 0, False
+:: Create a VBS launcher using Python (avoids batch quoting hell)
+"%VENV_DIR%\Scripts\python.exe" -c "p=r'%VENV_DIR%\Scripts\pythonw.exe';s=r'%PROJECT_DIR%\companion.pyw';d=r'%PROJECT_DIR%';f=open(r'%SHORTCUT_PATH%','w');f.write('Set ws = CreateObject(\"WScript.Shell\")\n');f.write('ws.CurrentDirectory = \"'+d+'\"\n');f.write('ws.Run chr(34) & \"'+p+'\" & chr(34) & \" \" & chr(34) & \"'+s+'\" & chr(34), 0, False\n');f.close()"
 :: Verify it was created
 if exist "%SHORTCUT_PATH%" (
     echo Companion added to Startup folder (all users).
