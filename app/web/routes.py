@@ -539,3 +539,43 @@ def api_telegram_detect():
         return jsonify({"ok": True, "chat_ids": merged})
     else:
         return jsonify({"ok": False, "error": t("telegram_send_message")})
+
+
+@bp.route("/api/telegram/test", methods=["POST"])
+@login_required
+def api_telegram_test():
+    import urllib.request
+    import urllib.parse
+
+    bot_token = get_setting("telegram_bot_token")
+    chat_ids_raw = get_setting("telegram_chat_id")
+
+    if not bot_token:
+        return jsonify({"ok": False, "error": "No bot token configured"})
+    if not chat_ids_raw:
+        return jsonify({"ok": False, "error": "No chat IDs configured"})
+
+    api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    message = "✅ Parental Control test — Telegram is working!"
+    sent = 0
+    errors = []
+
+    for chat_id in chat_ids_raw.split(","):
+        chat_id = chat_id.strip()
+        if not chat_id:
+            continue
+        try:
+            data = urllib.parse.urlencode({
+                "chat_id": chat_id,
+                "text": message,
+            }).encode()
+            req = urllib.request.Request(api_url, data=data)
+            urllib.request.urlopen(req, timeout=10)
+            sent += 1
+        except Exception as e:
+            errors.append(f"{chat_id}: {str(e)}")
+
+    if sent > 0:
+        return jsonify({"ok": True, "sent": sent})
+    else:
+        return jsonify({"ok": False, "error": "; ".join(errors)})

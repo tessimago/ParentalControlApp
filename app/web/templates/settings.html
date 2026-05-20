@@ -85,6 +85,7 @@
                 <input type="text" id="telegram_chat_id" name="telegram_chat_id"
                        value="{{ settings.telegram_chat_id }}" placeholder="{{ t.telegram_chat_placeholder }}" style="flex:1">
                 <button type="button" class="btn btn-secondary" onclick="detectChatId()">{{ t.detect_btn }}</button>
+                <button type="button" class="btn btn-primary" onclick="testTelegram()">{{ t.test_btn }}</button>
             </div>
             <p class="note" id="telegram-note">
                 {% if settings.telegram_chat_id %}
@@ -121,6 +122,26 @@ function detectChatId() {
         })
         .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; })
         .finally(() => { btn.disabled = false; btn.textContent = '{{ t.detect_btn }}'; });
+}
+
+function testTelegram() {
+    const btn = event.target;
+    const note = document.getElementById('telegram-note');
+    btn.disabled = true;
+    btn.textContent = '...';
+    fetch("{{ url_for('main.api_telegram_test') }}", { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                note.textContent = '{{ t.test_success }}'.replace('{count}', data.sent);
+                note.style.color = '#66bb6a';
+            } else {
+                note.textContent = data.error;
+                note.style.color = '#ef5350';
+            }
+        })
+        .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; })
+        .finally(() => { btn.disabled = false; btn.textContent = '{{ t.test_btn }}'; });
 }
 </script>
 {% endblock %}
