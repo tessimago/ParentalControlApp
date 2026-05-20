@@ -20,6 +20,7 @@
             <a href="{{ url_for('main.screenshots') }}" {% if request.endpoint in ['main.screenshots', 'main.screenshots_date'] %}class="active"{% endif %}>{{ t.screenshots }}</a>
             <a href="{{ url_for('main.live_view') }}" {% if request.endpoint == 'main.live_view' %}class="active"{% endif %}>{{ t.live }}</a>
             <a href="{{ url_for('main.settings') }}" {% if request.endpoint == 'main.settings' %}class="active"{% endif %}>{{ t.settings }}</a>
+            <a href="{{ url_for('main.logs') }}" {% if request.endpoint == 'main.logs' %}class="active"{% endif %}>{{ t.logs }}</a>
             <a href="{{ url_for('main.logout') }}" class="logout">{{ t.logout }}</a>
         </div>
     </nav>

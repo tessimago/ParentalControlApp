@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 
-from app.config import DATA_DIR
+from app.config import DATA_DIR, logger
 from app.database import get_setting, set_setting
 
 CLOUDFLARED_PATH = os.path.join(DATA_DIR, "cloudflared.exe")
@@ -30,23 +30,28 @@ class CloudflareTunnel:
 
         while not self.stop_flag.is_set():
             if not os.path.exists(CLOUDFLARED_PATH):
+                logger.info("Downloading cloudflared...")
                 if not self._download_cloudflared():
+                    logger.error("Failed to download cloudflared")
                     self.stop_flag.wait(60)
                     continue
 
             port = get_setting("port") or "7847"
+            logger.info(f"Starting tunnel on port {port}...")
             url = self._start_quick_tunnel(port)
 
             if url:
+                logger.info(f"Tunnel connected: {url}")
                 set_setting("tunnel_url", url)
                 self._notify_telegram(url)
+            else:
+                logger.error("Tunnel failed to start")
 
-            # Wait for tunnel process to exit or stop signal
             while not self.stop_flag.is_set() and self.process and self.process.poll() is None:
                 self.stop_flag.wait(10)
 
-            # Tunnel crashed — retry after delay
             if not self.stop_flag.is_set():
+                logger.info("Tunnel process exited, retrying in 15s...")
                 self.stop_flag.wait(15)
 
         self._stop_tunnel()

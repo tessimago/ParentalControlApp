@@ -20,7 +20,7 @@ from app.database import (
 from app.screenshots import (
     capture_frame, get_screenshot_dates, get_screenshots_for_date, get_screenshot_path
 )
-from app.config import SCREENSHOTS_DIR
+from app.config import SCREENSHOTS_DIR, LOG_DIR
 
 bp = Blueprint("main", __name__)
 
@@ -579,6 +579,30 @@ def api_telegram_test():
         return jsonify({"ok": True, "sent": sent})
     else:
         return jsonify({"ok": False, "error": "; ".join(errors)})
+
+
+# --- Logs ---
+
+@bp.route("/logs")
+@login_required
+def logs():
+    return render_template("logs.html")
+
+
+@bp.route("/api/logs")
+@login_required
+def api_logs():
+    log_file = os.path.join(LOG_DIR, "service.log")
+    lines = []
+    if os.path.exists(log_file):
+        with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()[-100:]
+    crash_file = os.path.join(LOG_DIR, "crash.log")
+    crash_lines = []
+    if os.path.exists(crash_file):
+        with open(crash_file, "r", encoding="utf-8", errors="ignore") as f:
+            crash_lines = f.readlines()[-20:]
+    return jsonify({"logs": lines, "crashes": crash_lines})
 
 
 # --- Update ---

@@ -4,7 +4,7 @@ import subprocess
 import threading
 import time
 
-from app.config import BASE_DIR, VENV_DIR, UPDATE_CHECK_INTERVAL, SERVICE_NAME
+from app.config import BASE_DIR, VENV_DIR, UPDATE_CHECK_INTERVAL, SERVICE_NAME, logger
 from app.database import get_setting
 
 
@@ -23,9 +23,12 @@ class AutoUpdater:
                 break
             try:
                 if self._check_for_updates():
+                    logger.info("Update available, applying...")
                     self._apply_update()
-            except Exception:
-                pass
+                else:
+                    logger.info("No updates available")
+            except Exception as e:
+                logger.error(f"Update check failed: {e}")
 
     def _check_for_updates(self):
         result = subprocess.run(

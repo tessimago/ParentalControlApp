@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title_suffix %} - {{ t.logs }}{% endblock %}
+
+{% block content %}
+<h1>{{ t.logs }}</h1>
+
+<div class="card">
+    <div class="card-header">
+        <h3>{{ t.service_log }}</h3>
+        <button class="btn btn-secondary btn-sm" onclick="refreshLogs()">{{ t.refresh }}</button>
+    </div>
+    <pre id="log-output" class="log-box"></pre>
+</div>
+
+<div class="card">
+    <h3>{{ t.crash_log }}</h3>
+    <pre id="crash-output" class="log-box"></pre>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function refreshLogs() {
+    fetch("{{ url_for('main.api_logs') }}")
+        .then(r => r.json())
+        .then(data => {
+            const logEl = document.getElementById('log-output');
+            const crashEl = document.getElementById('crash-output');
+            logEl.textContent = data.logs.join('') || 'No logs yet.';
+            crashEl.textContent = data.crashes.join('') || 'No crashes.';
+            logEl.scrollTop = logEl.scrollHeight;
+        });
+}
+refreshLogs();
+setInterval(refreshLogs, 5000);
+</script>
+{% endblock %}

@@ -418,6 +418,21 @@ th {
     font-size: 0.9rem;
 }
 
+/* Log box */
+.log-box {
+    background: #0d1117;
+    border: 1px solid #0f3460;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #b0b0b0;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .navbar { padding: 10px 16px; }
