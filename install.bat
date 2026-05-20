@@ -130,15 +130,14 @@ if !errorlevel! neq 0 (
 )
 echo Dependencies installed.
 
-:: ---- Step 5: pywin32 post-install ----
+:: ---- Step 5: Verify install ----
 echo.
-echo [5/11] Configuring pywin32...
-"%VENV_DIR%\Scripts\python.exe" "%VENV_DIR%\Scripts\pywin32_postinstall.py" -install >nul 2>&1
-"%VENV_DIR%\Scripts\python.exe" -c "import win32serviceutil" >nul 2>&1
+echo [5/11] Verifying Python packages...
+"%VENV_DIR%\Scripts\python.exe" -c "import flask, psutil, mss, PIL, bcrypt; print('All packages OK')"
 if !errorlevel! neq 0 (
-    echo [WARNING] pywin32 post-install may have issues. Service might not register.
-) else (
-    echo pywin32 configured.
+    echo [ERROR] Some packages failed to install.
+    pause
+    exit /b 1
 )
 
 :: ---- Step 6: Create hidden screenshots folder ----
@@ -173,16 +172,13 @@ if !errorlevel! neq 0 (
 )
 echo Database initialized.
 
-:: ---- Step 9: Install Windows Service ----
+:: ---- Step 9: Install as startup task ----
 echo.
-echo [9/11] Installing Windows Service...
-"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" --startup auto install
+echo [9/11] Installing startup task...
+"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" install
 if !errorlevel! neq 0 (
-    echo [WARNING] Service installation failed. You can still run manually with run_dev.py
+    echo [WARNING] Task registration failed. You can still run manually with run_dev.py
 )
-sc failure ParentalControl reset= 86400 actions= restart/5000/restart/30000/restart/60000 >nul 2>&1
-sc config ParentalControl start= auto >nul 2>&1
-echo Service installed with auto-start and auto-recovery.
 
 :: ---- Step 10: Register companion process (runs in user session for screenshots) ----
 echo.
@@ -196,13 +192,10 @@ if !errorlevel! neq 0 (
 :: Also start it now
 start "" "%VENV_DIR%\Scripts\pythonw.exe" "%PROJECT_DIR%\companion.pyw"
 
-:: ---- Step 11: Start Service ----
+:: ---- Step 11: Start service now ----
 echo.
 echo [11/11] Starting service...
-"%VENV_DIR%\Scripts\python.exe" "%PROJECT_DIR%\service.py" start
-if !errorlevel! neq 0 (
-    echo [WARNING] Service failed to start. Try: run_dev.py for testing.
-)
+start "" "%VENV_DIR%\Scripts\pythonw.exe" "%PROJECT_DIR%\run_service.pyw"
 echo Service started.
 
 echo.

@@ -1,132 +1,97 @@
+"""
+Parental Control - Service management.
+Registers a scheduled task that runs at system startup with SYSTEM privileges.
+This is more reliable than pywin32 services with venvs.
+"""
 import os
 import sys
-import threading
+import subprocess
 import time
-import traceback
 
-# Ensure the project root is on the path and set working directory
 _SERVICE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _SERVICE_DIR)
-os.chdir(_SERVICE_DIR)
-
-import servicemanager
-import win32event
-import win32service
-import win32serviceutil
-
-from app.config import SERVICE_NAME, SERVICE_DISPLAY_NAME, SERVICE_DESCRIPTION
+TASK_NAME = "ParentalControlService"
+VENV_PYTHONW = os.path.join(_SERVICE_DIR, ".venv", "Scripts", "pythonw.exe")
+RUN_SCRIPT = os.path.join(_SERVICE_DIR, "run_service.pyw")
 
 
-def _crash_log(msg):
-    """Write to a crash log file without depending on our logging module."""
-    try:
-        log_dir = os.path.join(_SERVICE_DIR, "data", "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        with open(os.path.join(log_dir, "crash.log"), "a") as f:
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
-    except Exception:
-        pass
+def install():
+    """Register the app to run at system startup as SYSTEM."""
+    # Remove existing task if any
+    subprocess.run(
+        ["schtasks", "/delete", "/tn", TASK_NAME, "/f"],
+        capture_output=True
+    )
+
+    result = subprocess.run(
+        ["schtasks", "/create",
+         "/tn", TASK_NAME,
+         "/tr", f'"{VENV_PYTHONW}" "{RUN_SCRIPT}"',
+         "/sc", "onstart",
+         "/ru", "SYSTEM",
+         "/rl", "HIGHEST",
+         "/f"],
+        capture_output=True, text=True
+    )
+
+    if result.returncode == 0:
+        print("Service installed (runs at system startup).")
+    else:
+        print(f"Failed to install: {result.stderr.strip()}")
+        return False
+    return True
 
 
-class ParentalControlService(win32serviceutil.ServiceFramework):
-    _svc_name_ = SERVICE_NAME
-    _svc_display_name_ = SERVICE_DISPLAY_NAME
-    _svc_description_ = SERVICE_DESCRIPTION
+def start():
+    """Start the task immediately."""
+    result = subprocess.run(
+        ["schtasks", "/run", "/tn", TASK_NAME],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print("Service started.")
+    else:
+        print(f"Failed to start: {result.stderr.strip()}")
 
-    def __init__(self, args):
-        win32serviceutil.ServiceFramework.__init__(self, args)
-        self.stop_event = win32event.CreateEvent(None, 0, 0, None)
-        self.running = True
 
-    def SvcStop(self):
-        self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
-        self.running = False
-        win32event.SetEvent(self.stop_event)
+def stop():
+    """Stop the running task."""
+    subprocess.run(
+        ["taskkill", "/f", "/im", "pythonw.exe", "/fi", f"WINDOWTITLE eq {TASK_NAME}"],
+        capture_output=True
+    )
+    # Also kill by finding our specific process
+    subprocess.run(
+        ["schtasks", "/end", "/tn", TASK_NAME],
+        capture_output=True
+    )
+    print("Service stopped.")
 
-    def SvcDoRun(self):
-        try:
-            self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
-            servicemanager.LogMsg(
-                servicemanager.EVENTLOG_INFORMATION_TYPE,
-                servicemanager.PYS_SERVICE_STARTED,
-                (self._svc_name_, "")
-            )
-            self.main()
-        except Exception as e:
-            _crash_log(f"SvcDoRun crashed: {e}\n{traceback.format_exc()}")
-            raise
 
-    def main(self):
-        import logging
-        from app.config import logger, DEFAULT_PORT
-
-        try:
-            from app.database import init_db
-            from app.monitor import MonitorEngine
-            from app.scheduler import ScheduleEnforcer
-            from app.limiter import AppLimiter
-            from app.screenshots import ScreenshotCapture
-            from app.updater import AutoUpdater
-            from app.tunnel import CloudflareTunnel
-            from app.web import create_app
-            from app.database import get_setting
-
-            logger.info("Service starting...")
-
-            init_db()
-            logger.info("Database initialized")
-
-            port = int(get_setting("port") or DEFAULT_PORT)
-
-            stop_flag = threading.Event()
-
-            monitor = MonitorEngine(stop_flag)
-            scheduler = ScheduleEnforcer(stop_flag)
-            limiter = AppLimiter(stop_flag)
-            screenshots = ScreenshotCapture(stop_flag)
-            updater = AutoUpdater(stop_flag)
-            tunnel = CloudflareTunnel(stop_flag)
-
-            threads = [
-                threading.Thread(target=monitor.run, daemon=True),
-                threading.Thread(target=scheduler.run, daemon=True),
-                threading.Thread(target=limiter.run, daemon=True),
-                threading.Thread(target=screenshots.run, daemon=True),
-                threading.Thread(target=updater.run, daemon=True),
-                threading.Thread(target=tunnel.run, daemon=True),
-            ]
-
-            flask_app = create_app()
-            flask_thread = threading.Thread(
-                target=lambda: flask_app.run(host="0.0.0.0", port=port, threaded=True),
-                daemon=True
-            )
-            threads.append(flask_thread)
-
-            for t in threads:
-                t.start()
-
-            logger.info(f"All threads started. Flask on port {port}")
-            self.ReportServiceStatus(win32service.SERVICE_RUNNING)
-
-            while self.running:
-                if win32event.WaitForSingleObject(self.stop_event, 1000) == win32event.WAIT_OBJECT_0:
-                    break
-
-            logger.info("Service stopping...")
-            stop_flag.set()
-            time.sleep(2)
-            logger.info("Service stopped")
-
-        except Exception as e:
-            logger.exception(f"Service crashed: {e}")
-            raise
+def remove():
+    """Remove the scheduled task."""
+    stop()
+    subprocess.run(
+        ["schtasks", "/delete", "/tn", TASK_NAME, "/f"],
+        capture_output=True
+    )
+    print("Service removed.")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        servicemanager.Initialize()
-        servicemanager.PrepareToHostSingle(ParentalControlService)
-        servicemanager.StartServiceCtrlDispatcher()
+    if len(sys.argv) < 2:
+        print("Usage: service.py [install|start|stop|remove]")
+        sys.exit(1)
+
+    cmd = sys.argv[1].lower().replace("-", "")
+    # Handle pywin32-style args like "--startup auto install"
+    if "install" in " ".join(sys.argv[1:]).lower():
+        install()
+    elif cmd == "start":
+        start()
+    elif cmd == "stop":
+        stop()
+    elif cmd in ("remove", "uninstall", "delete"):
+        remove()
     else:
-        win32serviceutil.HandleCommandLine(ParentalControlService)
+        print(f"Unknown command: {cmd}")
+        print("Usage: service.py [install|start|stop|remove]")

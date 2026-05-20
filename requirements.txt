@@ -1,6 +1,5 @@
 flask
 psutil
-pywin32
 mss
 pillow
 bcrypt
