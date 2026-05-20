@@ -81,9 +81,12 @@
         </div>
         <div class="form-group">
             <label for="telegram_chat_id">{{ t.telegram_chat_id }}</label>
-            <input type="text" id="telegram_chat_id" name="telegram_chat_id"
-                   value="{{ settings.telegram_chat_id }}" placeholder="{{ t.telegram_chat_placeholder }}">
-            <p class="note">
+            <div class="form-row">
+                <input type="text" id="telegram_chat_id" name="telegram_chat_id"
+                       value="{{ settings.telegram_chat_id }}" placeholder="{{ t.telegram_chat_placeholder }}" style="flex:1">
+                <button type="button" class="btn btn-secondary" onclick="detectChatId()">{{ t.detect_btn }}</button>
+            </div>
+            <p class="note" id="telegram-note">
                 {% if settings.telegram_chat_id %}
                     {{ t.telegram_chat_detected }} {{ settings.telegram_chat_id }}
                 {% else %}
@@ -95,4 +98,29 @@
         <button type="submit" class="btn btn-primary">{{ t.save_settings }}</button>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function detectChatId() {
+    const btn = event.target;
+    const note = document.getElementById('telegram-note');
+    btn.disabled = true;
+    btn.textContent = '...';
+    fetch("{{ url_for('main.api_telegram_detect') }}", { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                document.getElementById('telegram_chat_id').value = data.chat_ids;
+                note.textContent = '{{ t.telegram_chat_detected }} ' + data.chat_ids;
+                note.style.color = '#66bb6a';
+            } else {
+                note.textContent = data.error;
+                note.style.color = '#ef5350';
+            }
+        })
+        .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; })
+        .finally(() => { btn.disabled = false; btn.textContent = '{{ t.detect_btn }}'; });
+}
+</script>
 {% endblock %}

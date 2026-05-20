@@ -494,19 +494,48 @@ def _fetch_telegram_chat_id(bot_token):
     try:
         import urllib.request
         import json
-        url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
+
+        # First, remove any webhook that might be consuming updates
+        del_url = f"https://api.telegram.org/bot{bot_token}/deleteWebhook"
+        urllib.request.urlopen(urllib.request.Request(del_url), timeout=5)
+
+        # Fetch all pending updates
+        url = f"https://api.telegram.org/bot{bot_token}/getUpdates?timeout=5"
         req = urllib.request.Request(url)
-        response = urllib.request.urlopen(req, timeout=10)
+        response = urllib.request.urlopen(req, timeout=15)
         data = json.loads(response.read().decode())
         chat_ids = set()
         if data.get("ok") and data.get("result"):
             for update in data["result"]:
-                msg = update.get("message") or update.get("my_chat_member", {})
-                chat = msg.get("chat") if isinstance(msg, dict) else None
-                if chat and chat.get("id"):
-                    chat_ids.add(str(chat["id"]))
+                for key in ("message", "my_chat_member", "edited_message", "channel_post"):
+                    msg = update.get(key)
+                    if isinstance(msg, dict):
+                        chat = msg.get("chat")
+                        if chat and chat.get("id"):
+                            chat_ids.add(str(chat["id"]))
         if chat_ids:
             return ", ".join(sorted(chat_ids))
     except Exception:
         pass
     return None
+
+
+@bp.route("/api/telegram/detect", methods=["POST"])
+@login_required
+def api_telegram_detect():
+    from app.i18n import t
+    bot_token = get_setting("telegram_bot_token")
+    if not bot_token:
+        return jsonify({"ok": False, "error": "No bot token configured"})
+
+    fetched_id = _fetch_telegram_chat_id(bot_token)
+    if fetched_id:
+        existing = get_setting("telegram_chat_id") or ""
+        # Merge with any existing IDs
+        all_ids = set(i.strip() for i in existing.split(",") if i.strip())
+        all_ids.update(i.strip() for i in fetched_id.split(",") if i.strip())
+        merged = ", ".join(sorted(all_ids))
+        set_setting("telegram_chat_id", merged)
+        return jsonify({"ok": True, "chat_ids": merged})
+    else:
+        return jsonify({"ok": False, "error": t("telegram_send_message")})
