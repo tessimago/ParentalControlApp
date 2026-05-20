@@ -134,24 +134,16 @@ class CloudflareTunnel:
         if not bot_token or not chat_ids_raw:
             return
 
-        import urllib.request
-        import urllib.parse
+        from app.telegram_helper import telegram_send
 
-        message = f"🖥️ Parental Control is online!\n\n🔗 {url}\n\nAccess from anywhere with this link."
-        api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        message = f"\U0001f5a5️ Parental Control is online!\n\n\U0001f517 {url}\n\nAccess from anywhere with this link."
 
         for chat_id in chat_ids_raw.split(","):
             chat_id = chat_id.strip()
             if not chat_id:
                 continue
             try:
-                data = urllib.parse.urlencode({
-                    "chat_id": chat_id,
-                    "text": message,
-                    "parse_mode": "HTML"
-                }).encode()
-                req = urllib.request.Request(api_url, data=data)
-                urllib.request.urlopen(req, timeout=10)
+                telegram_send(bot_token, chat_id, message)
                 logger.info(f"Telegram notification sent to chat {chat_id}")
             except Exception as e:
                 logger.error(f"Telegram send failed for chat {chat_id}: {e}")

@@ -4,6 +4,8 @@
 {% block content %}
 <h1>{{ t.settings }}</h1>
 
+<p class="note" style="margin-bottom: 16px;">Version: <strong>{{ settings.version }}</strong></p>
+
 <div class="card">
     <h3>{{ t.change_password }}</h3>
     <form method="POST" action="{{ url_for('main.settings') }}">

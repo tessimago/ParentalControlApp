@@ -442,6 +442,9 @@ def delete_screenshot(date, filename):
 @bp.route("/settings")
 @login_required
 def settings():
+    import subprocess
+    from app.config import BASE_DIR
+
     current_settings = {
         "port": get_setting("port") or "7847",
         "screenshot_interval": get_setting("screenshot_interval") or "300",
@@ -455,6 +458,16 @@ def settings():
         "telegram_chat_id": get_setting("telegram_chat_id") or "",
         "tunnel_url": get_setting("tunnel_url") or "",
     }
+
+    try:
+        result = subprocess.run(
+            ["git", "log", "--oneline", "-1"],
+            cwd=BASE_DIR, capture_output=True, text=True, timeout=5
+        )
+        current_settings["version"] = result.stdout.strip() if result.returncode == 0 else "unknown"
+    except Exception:
+        current_settings["version"] = "unknown"
+
     return render_template("settings.html", settings=current_settings)
 
 
@@ -506,27 +519,8 @@ def settings_update():
 
 def _fetch_telegram_chat_id(bot_token):
     try:
-        import urllib.request
-        import json
-
-        # First, remove any webhook that might be consuming updates
-        del_url = f"https://api.telegram.org/bot{bot_token}/deleteWebhook"
-        urllib.request.urlopen(urllib.request.Request(del_url), timeout=5)
-
-        # Fetch all pending updates
-        url = f"https://api.telegram.org/bot{bot_token}/getUpdates?timeout=5"
-        req = urllib.request.Request(url)
-        response = urllib.request.urlopen(req, timeout=15)
-        data = json.loads(response.read().decode())
-        chat_ids = set()
-        if data.get("ok") and data.get("result"):
-            for update in data["result"]:
-                for key in ("message", "my_chat_member", "edited_message", "channel_post"):
-                    msg = update.get(key)
-                    if isinstance(msg, dict):
-                        chat = msg.get("chat")
-                        if chat and chat.get("id"):
-                            chat_ids.add(str(chat["id"]))
+        from app.telegram_helper import telegram_get_updates
+        chat_ids = telegram_get_updates(bot_token)
         if chat_ids:
             return ", ".join(sorted(chat_ids))
     except Exception:
@@ -558,8 +552,7 @@ def api_telegram_detect():
 @bp.route("/api/telegram/test", methods=["POST"])
 @login_required
 def api_telegram_test():
-    import urllib.request
-    import urllib.parse
+    from app.telegram_helper import telegram_send
 
     bot_token = get_setting("telegram_bot_token")
     chat_ids_raw = get_setting("telegram_chat_id")
@@ -569,7 +562,6 @@ def api_telegram_test():
     if not chat_ids_raw:
         return jsonify({"ok": False, "error": "No chat IDs configured"})
 
-    api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     message = "✅ Parental Control test — Telegram is working!"
     sent = 0
     errors = []
@@ -579,12 +571,7 @@ def api_telegram_test():
         if not chat_id:
             continue
         try:
-            data = urllib.parse.urlencode({
-                "chat_id": chat_id,
-                "text": message,
-            }).encode()
-            req = urllib.request.Request(api_url, data=data)
-            urllib.request.urlopen(req, timeout=10)
+            telegram_send(bot_token, chat_id, message)
             sent += 1
         except Exception as e:
             errors.append(f"{chat_id}: {str(e)}")
