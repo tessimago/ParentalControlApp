@@ -1,5 +1,6 @@
 import os
 import shutil
+import threading
 import time
 from datetime import datetime, timedelta
 
@@ -616,6 +617,68 @@ def api_logs():
         with open(crash_file, "r", encoding="utf-8", errors="ignore") as f:
             crash_lines = f.readlines()[-20:]
     return jsonify({"logs": lines, "crashes": crash_lines})
+
+
+# --- Remove Control ---
+
+@bp.route("/api/remove-control", methods=["POST"])
+@login_required
+def api_remove_control():
+    import subprocess
+    import signal
+
+    logger.info("REMOVE CONTROL triggered by parent")
+
+    errors = []
+
+    # 1. Delete the startup scheduled task
+    try:
+        subprocess.run(
+            ["schtasks", "/delete", "/tn", "ParentalControl", "/f"],
+            capture_output=True, timeout=10
+        )
+        logger.info("Removed ParentalControl scheduled task")
+    except Exception as e:
+        errors.append(f"Task removal: {e}")
+
+    # 2. Delete the companion scheduled task
+    try:
+        subprocess.run(
+            ["schtasks", "/delete", "/tn", "ParentalControlCompanion", "/f"],
+            capture_output=True, timeout=10
+        )
+        logger.info("Removed ParentalControlCompanion scheduled task")
+    except Exception as e:
+        errors.append(f"Companion task removal: {e}")
+
+    # 3. Kill companion and tunnel processes
+    try:
+        subprocess.run(
+            ["taskkill", "/f", "/im", "pythonw.exe", "/fi", "WINDOWTITLE eq ParentalControlCompanion"],
+            capture_output=True, timeout=10
+        )
+    except Exception:
+        pass
+    try:
+        subprocess.run(
+            ["taskkill", "/f", "/im", "cloudflared.exe"],
+            capture_output=True, timeout=10
+        )
+    except Exception:
+        pass
+
+    if errors:
+        return jsonify({"ok": False, "error": "; ".join(errors)})
+
+    # 4. Schedule self-termination (give time for the response to reach the browser)
+    def _shutdown():
+        time.sleep(2)
+        logger.info("Service shutting down after Remove Control")
+        os._exit(0)
+
+    threading.Thread(target=_shutdown, daemon=True).start()
+
+    return jsonify({"ok": True})
 
 
 # --- Update ---

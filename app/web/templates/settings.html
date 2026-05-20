@@ -106,6 +106,13 @@
     <button type="button" class="btn btn-primary" id="update-btn" onclick="checkUpdate()">{{ t.update_btn }}</button>
     <p class="note" id="update-note"></p>
 </div>
+
+<div class="card" style="border-color: #ef5350;">
+    <h3 style="color: #ef5350;">{{ t.remove_control_title }}</h3>
+    <p class="note">{{ t.remove_control_desc }}</p>
+    <button type="button" class="btn btn-danger" id="remove-btn" onclick="removeControl()">{{ t.remove_control_btn }}</button>
+    <p class="note" id="remove-note"></p>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -173,6 +180,28 @@ function checkUpdate() {
         })
         .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; })
         .finally(() => { btn.disabled = false; btn.textContent = '{{ t.update_btn }}'; });
+}
+
+function removeControl() {
+    if (!confirm('{{ t.remove_control_confirm }}')) return;
+    const btn = document.getElementById('remove-btn');
+    const note = document.getElementById('remove-note');
+    btn.disabled = true;
+    btn.textContent = '...';
+    fetch("{{ url_for('main.api_remove_control') }}", { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                note.textContent = '{{ t.remove_control_done }}';
+                note.style.color = '#66bb6a';
+            } else {
+                note.textContent = data.error || 'Failed';
+                note.style.color = '#ef5350';
+                btn.disabled = false;
+                btn.textContent = '{{ t.remove_control_btn }}';
+            }
+        })
+        .catch(() => { note.textContent = 'Request failed'; note.style.color = '#ef5350'; btn.disabled = false; btn.textContent = '{{ t.remove_control_btn }}'; });
 }
 </script>
 {% endblock %}

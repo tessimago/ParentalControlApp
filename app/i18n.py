@@ -134,6 +134,11 @@ TRANSLATIONS = {
         "telegram_send_message": "Telegram token saved. Send your bot a message, then save settings again to auto-detect chat ID.",
         "time_limit_reached_kill": "Time limit reached for {name}! Closing in 10 seconds...",
         "time_limit_reached_warn": "Time limit reached for {name}! Please close it.",
+        "remove_control_title": "Remove Control",
+        "remove_control_desc": "Completely disable parental control on this PC. Removes startup tasks and stops all monitoring. To restore, run install.bat again on the child's computer.",
+        "remove_control_btn": "Remove Control",
+        "remove_control_confirm": "Are you sure? This will completely disable parental control. You will need physical access to the PC to restore it.",
+        "remove_control_done": "Control removed. The service has been stopped and will not restart.",
         "day_names": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     },
     "pt": {
@@ -269,6 +274,11 @@ TRANSLATIONS = {
         "telegram_send_message": "Token Telegram guardado. Envia uma mensagem ao bot e guarda novamente para auto-detetar o chat ID.",
         "time_limit_reached_kill": "Limite de tempo atingido para {name}! A fechar em 10 segundos...",
         "time_limit_reached_warn": "Limite de tempo atingido para {name}! Por favor fecha.",
+        "remove_control_title": "Remover Controlo",
+        "remove_control_desc": "Desativar completamente o controlo parental neste PC. Remove as tarefas de arranque e para toda a monitorização. Para restaurar, execute install.bat novamente no computador.",
+        "remove_control_btn": "Remover Controlo",
+        "remove_control_confirm": "Tens a certeza? Isto vai desativar completamente o controlo parental. Precisarás de acesso físico ao PC para restaurar.",
+        "remove_control_done": "Controlo removido. O serviço foi parado e não vai reiniciar.",
         "day_names": ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"],
     },
 }
